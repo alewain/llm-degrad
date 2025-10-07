@@ -1,10 +1,24 @@
 .env
-results/
+
+# Exclude full experiment results (large files)
+results/*.json
+
+# But include small samples (for notebooks and documentation)
+!results/samples/
+!results/samples/*.json
+
+# Exclude logs (can be large and session-specific)
 logs/
-*.pt
-*.safetensors
+*.log
+
+# Python artifacts
 __pycache__/
 .ipynb_checkpoints/
+*.pyc
+
+# Model artifacts (if downloaded locally)
+*.pt
+*.safetensors
 
 # Entorno virtual y cachés
 .venv/
