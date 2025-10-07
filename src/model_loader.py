@@ -214,12 +214,11 @@ def create_baseline_subset(
         Parameters are cloned and moved to CPU to avoid GPU memory overhead.
         The original model remains on GPU for generation.
     """
-    from src.target_params import strip_module_prefix
-    
     baseline_subset = {}
     
     for name, param in model.named_parameters():
-        name_clean = strip_module_prefix(name)
+        # Remove 'module.' prefix if present (DataParallel compatibility)
+        name_clean = name[7:] if name.startswith("module.") else name
         
         if name_clean in param_names:
             # Clone to CPU and preserve dtype
@@ -262,8 +261,6 @@ def restore_from_baseline(
         - No disk I/O involved (everything in memory)
         - Efficient CPU→GPU transfer
     """
-    from src.target_params import strip_module_prefix
-    
     start_time = time.time()
     
     device = next(model.parameters()).device

@@ -2,76 +2,45 @@
 Parameter groups for targeting specific model components during degradation.
 
 This module defines which parameters to target for each degradation experiment.
-Currently hardcoded for Gemma-3-4b (34 layers).
+Currently configured for Gemma-3-4b-IT (34 layers).
 
-WARNING: If using a different model architecture, this file must be manually
-adapted to match the model's layer count and parameter naming conventions.
+WARNING: If using a different model architecture, modify the 
+"Gemma-3-4b-IT specific definitions" section.
 """
 
 from typing import Dict, List
 
-# Number of layers in Gemma-3-4b (hardcoded)
+# ============================================================================
+# Gemma-3-4b-IT specific definitions
+# ============================================================================
+
+# Number of layers in Gemma-3-4b
 NUM_LAYERS = 34
 
-# ============================================================================
-# Parameter group definitions
-# ============================================================================
+# Attention parameters (V matrices)
+ATTN_PARAMS = [
+    f"language_model.model.layers.{i}.self_attn.v_proj.weight"
+    for i in range(NUM_LAYERS)
+]
 
-def get_attn_params() -> List[str]:
-    """
-    Get attention value projection parameters (V matrices).
-    
-    Returns:
-        List of parameter names for attention V projections across all layers
-    """
-    return [
-        f"language_model.model.layers.{i}.self_attn.v_proj.weight"
-        for i in range(NUM_LAYERS)
-    ]
+# MLP parameters (gate, up, down projections)
+MLP_PARAMS = [
+    f"language_model.model.layers.{i}.mlp.{proj}_proj.weight"
+    for i in range(NUM_LAYERS)
+    for proj in ["gate", "up", "down"]
+]
 
-
-def get_mlp_params() -> List[str]:
-    """
-    Get MLP (feed-forward) parameters.
-    
-    Includes gate, up, and down projections for all layers.
-    
-    Returns:
-        List of parameter names for all MLP projections
-    """
-    gate = [
-        f"language_model.model.layers.{i}.mlp.gate_proj.weight"
-        for i in range(NUM_LAYERS)
-    ]
-    up = [
-        f"language_model.model.layers.{i}.mlp.up_proj.weight"
-        for i in range(NUM_LAYERS)
-    ]
-    down = [
-        f"language_model.model.layers.{i}.mlp.down_proj.weight"
-        for i in range(NUM_LAYERS)
-    ]
-    return gate + up + down
-
-
-def get_embedding_params() -> List[str]:
-    """
-    Get embedding layer parameters.
-    
-    Returns:
-        List containing the embedding weight parameter
-    """
-    return ["language_model.model.embed_tokens.weight"]
-
+# Embedding parameters
+EMBED_PARAMS = ["language_model.model.embed_tokens.weight"]
 
 # ============================================================================
 # Parameter groups dictionary (for config-based selection)
 # ============================================================================
 
 PARAM_GROUPS: Dict[str, List[str]] = {
-    "attn_only": get_attn_params(),
-    "mlp_only": get_mlp_params(),
-    "embed_only": get_embedding_params(),
+    "attn_only": ATTN_PARAMS,
+    "mlp_only": MLP_PARAMS,
+    "embed_only": EMBED_PARAMS,
 }
 
 
@@ -101,26 +70,6 @@ def get_param_group(group_name: str) -> List[str]:
     return PARAM_GROUPS[group_name]
 
 
-def strip_module_prefix(name: str) -> str:
-    """
-    Remove 'module.' prefix from parameter name if present.
-    
-    This handles the case where the model is wrapped in DataParallel,
-    which adds a 'module.' prefix to all parameter names.
-    
-    Args:
-        name: Parameter name (possibly with 'module.' prefix)
-    
-    Returns:
-        Parameter name without 'module.' prefix
-    
-    Example:
-        >>> strip_module_prefix("module.layer.weight")
-        'layer.weight'
-        >>> strip_module_prefix("layer.weight")
-        'layer.weight'
-    """
-    return name[7:] if name.startswith("module.") else name
 
 
 # ============================================================================
@@ -144,7 +93,8 @@ def validate_param_group(model, group_name: str) -> bool:
     import logging
     
     expected_params = set(get_param_group(group_name))
-    model_params = {strip_module_prefix(n) for n, _ in model.named_parameters()}
+    # Remove 'module.' prefix if present (DataParallel compatibility)
+    model_params = {n[7:] if n.startswith("module.") else n for n, _ in model.named_parameters()}
     
     missing = expected_params - model_params
     
@@ -164,23 +114,4 @@ def validate_param_group(model, group_name: str) -> bool:
         f"{len(expected_params)} parameters found"
     )
     return True
-
-
-def get_param_counts() -> Dict[str, int]:
-    """
-    Get counts of parameters in each group.
-    
-    Returns:
-        Dictionary mapping group names to parameter counts
-    
-    Example:
-        >>> counts = get_param_counts()
-        >>> counts['attn_only']
-        34
-        >>> counts['mlp_only']
-        102
-        >>> counts['embed_only']
-        1
-    """
-    return {name: len(params) for name, params in PARAM_GROUPS.items()}
 
