@@ -32,7 +32,7 @@ def load_model_and_tokenizer(
     model_name: str,
     param_names: List[str],
     device: str = "cuda:0",
-    dtype: str = "float16",
+    dtype: str = "float32",
     load_in_4bit: bool = False,
     max_seq_length: int = 512,
 ) -> Tuple[Any, Any, Dict[str, torch.Tensor]]:
@@ -116,7 +116,7 @@ def load_tokenizer(model_name: str) -> Any:
 def load_model(
     model_name: str,
     device: str = "cuda:0",
-    dtype: str = "float16",
+    dtype: str = "float32",
     load_in_4bit: bool = False,
     max_seq_length: int = 512,
 ) -> Any:
@@ -164,7 +164,7 @@ def load_model(
         "float32": torch.float32,
         "bfloat16": torch.bfloat16,
     }
-    torch_dtype = dtype_map.get(dtype, torch.float16)
+    torch_dtype = dtype_map.get(dtype, torch.float32)
     
     # Load with Unsloth
     model, _ = FastLanguageModel.from_pretrained(
@@ -173,7 +173,7 @@ def load_model(
         dtype=torch_dtype,
         load_in_4bit=load_in_4bit,
         token=None,  # Will use HF_TOKEN from environment
-        device_map=device,
+        device_map="auto",
     )
     
     # Set to eval mode

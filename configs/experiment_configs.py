@@ -32,7 +32,7 @@ class ExperimentConfig:
     model_name: str = "google/gemma-3-4b-it"
     model_variant: Literal["it"] = "it"  # Only instruction-tuned variant supported
     device: str = "cuda:0"
-    dtype: Literal["float16", "float32", "bfloat16"] = "float16"
+    dtype: Literal["float16", "float32", "bfloat16"] = "float32"
     load_in_4bit: bool = False
     restore_strategy: str = "subset_in_memory"
     

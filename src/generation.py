@@ -103,7 +103,7 @@ def generate_text(
     # Cast to appropriate dtype (except input_ids which must stay as integers)
     for k in inputs:
         if k != "input_ids" and hasattr(inputs[k], 'dtype'):
-            inputs[k] = inputs[k].to(dtype=torch.float16)
+            inputs[k] = inputs[k].to(dtype=torch.float32)
     
     # Generate outputs
     with torch.no_grad():
@@ -139,6 +139,10 @@ def evaluate_perplexity(
 ) -> float:
     """
     Calculate perplexity of the model on a given text.
+
+    Note:
+        This is an optional metric, disabled by default in experiments.
+        Enable via config.compute_perplexity = True
     
     Perplexity is exp(loss) and measures how well the model predicts the text.
     Lower perplexity indicates better language modeling performance.
@@ -151,9 +155,6 @@ def evaluate_perplexity(
     Returns:
         Perplexity value (float)
     
-    Note:
-        This is an optional metric, disabled by default in experiments.
-        Enable via config.compute_perplexity = True
     """
     inputs = tokenizer(text, return_tensors="pt").to(model.device)
     

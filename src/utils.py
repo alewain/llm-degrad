@@ -40,8 +40,10 @@ def setup_logging(log_filename: str, level: int = logging.INFO) -> None:
             # Python < 3.7 doesn't have reconfigure, skip
             pass
     
-    # Ensure logs directory exists
-    os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+    # Ensure logs directory exists (if log_filename includes a directory)
+    log_dir = os.path.dirname(log_filename)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
     
     # Create formatter (simple format, timestamps already in messages)
     formatter = logging.Formatter('%(message)s')
@@ -129,18 +131,160 @@ def get_model_memory_footprint(model: Any) -> Dict[str, float]:
     }
 
 
-# Functions to be added in Phase 4:
-# - calculate_vram_percentage()
-# - adjust_batch_size_by_vram()
-# - dry_run_memory_estimation()
+def calculate_vram_percentage() -> float:
+    """
+    Calculate VRAM usage percentage across all GPUs.
+    
+    Returns:
+        Maximum VRAM percentage detected across all GPUs (0-100)
+    
+    Note:
+        If no CUDA devices are available, returns 0.
+        Logs VRAM usage for each GPU in a single line.
+    
+    Example:
+        >>> vram_pct = calculate_vram_percentage()
+        📊 VRAM usada: GPU0=45.2% | GPU1=38.7%
+        >>> print(f"Max VRAM: {vram_pct:.1f}%")
+    """
+    if not torch.cuda.is_available():
+        return 0.0
+    
+    porcentaje_max = 0.0
+    porcentajes = []
+    
+    for i in range(torch.cuda.device_count()):
+        allocated = torch.cuda.memory_allocated(i) / (1024 ** 2)  # MB
+        total_vram = torch.cuda.get_device_properties(i).total_memory / (1024 ** 2)  # MB
+        porcentaje_vram = (allocated / total_vram) * 100
+        porcentajes.append(f"GPU{i}={porcentaje_vram:.1f}%")
+        if porcentaje_vram > porcentaje_max:
+            porcentaje_max = porcentaje_vram
+    
+    logging.info(f"📊 VRAM usada: {' | '.join(porcentajes)}")
+    return porcentaje_max
+
+
+def adjust_batch_size_by_vram(
+    vram_percentage: float,
+    current_batch_size: int,
+    max_batch_size: int,
+    total_prompts: int
+) -> int:
+    """
+    Adjust batch size based on VRAM usage.
+    
+    This function implements adaptive batch sizing:
+    - If VRAM > 95%: Raises SystemExit (critical error)
+    - If VRAM > 90%: Warns and pauses briefly
+    - If VRAM < 40%: Increases batch_size (up to max_batch_size)
+    
+    Args:
+        vram_percentage: Current VRAM usage percentage (0-100)
+        current_batch_size: Current batch size
+        max_batch_size: Maximum allowed batch size
+        total_prompts: Total number of prompts (to avoid exceeding this)
+    
+    Returns:
+        Adjusted batch size (may be same as input if no adjustment needed)
+    
+    Raises:
+        SystemExit: If VRAM > 95% (critical error)
+    
+    Note:
+        This function only monitors and adjusts. The caller is responsible
+        for saving results before calling if SystemExit is a concern.
+    """
+    import time
+    
+    if not torch.cuda.is_available():
+        return current_batch_size
+    
+    # Critical: VRAM > 95%
+    if vram_percentage > 95:
+        logging.error(
+            f"❌ CRITICAL ERROR: VRAM usage {vram_percentage:.1f}% detected. "
+            "Stopping experiment."
+        )
+        raise SystemExit(1)
+    
+    # Warning: VRAM > 90%
+    elif vram_percentage > 90:
+        logging.warning(
+            f"⚠️ WARNING: High VRAM usage {vram_percentage:.1f}%. "
+            "Pausing briefly..."
+        )
+        time.sleep(1)
+    
+    # Increase batch size: VRAM < 40%
+    elif vram_percentage < 40:
+        if current_batch_size < max_batch_size and current_batch_size < total_prompts:
+            new_batch_size = current_batch_size + 1
+            logging.info(
+                f"⚡ Low VRAM detected ({vram_percentage:.1f}%). "
+                f"Increasing batch_size: {current_batch_size} → {new_batch_size}"
+            )
+            return new_batch_size
+    
+    return current_batch_size
 
 
 # ============================================================================
 # Section 3: Image support for multimodal experiments
-# TO BE IMPLEMENTED in Phase 4
 # ============================================================================
 
-# Functions to be added:
-# - load_image()
-# - prepare_prompt_with_image()
+def load_image(image_path: str) -> Any:
+    """
+    Load an image from file for multimodal experiments.
+    
+    Args:
+        image_path: Path to image file
+    
+    Returns:
+        PIL Image object in RGB mode
+    
+    Raises:
+        FileNotFoundError: If image file does not exist
+        IOError: If image cannot be loaded
+    
+    Example:
+        >>> image = load_image("cookie_theft.png")
+        >>> print(f"Image size: {image.size}")
+    """
+    from PIL import Image
+    
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Image not found: {image_path}")
+    
+    try:
+        image = Image.open(image_path).convert("RGB")
+        logging.info(f"Image loaded: {image_path} ({image.size[0]}x{image.size[1]})")
+        return image
+    except Exception as e:
+        raise IOError(f"Failed to load image {image_path}: {e}")
+
+
+def prepare_prompt_with_image(prompt: str) -> str:
+    """
+    Prepare prompt for multimodal generation by adding image tag.
+    
+    Ensures prompt starts with <start_of_image> token for Gemma multimodal models.
+    Does not duplicate the tag if already present.
+    
+    Args:
+        prompt: User prompt text
+    
+    Returns:
+        Prompt with <start_of_image> prefix if not already present
+    
+    Example:
+        >>> prepare_prompt_with_image("Describe this picture")
+        '<start_of_image> Describe this picture'
+        >>> prepare_prompt_with_image("<start_of_image> Already tagged")
+        '<start_of_image> Already tagged'
+    """
+    prompt_stripped = prompt.strip()
+    if prompt_stripped.startswith("<start_of_image>"):
+        return prompt_stripped
+    return f"<start_of_image> {prompt_stripped}"
 
