@@ -40,11 +40,13 @@ Repo_nuevo/
 
 ### Core Modules (`src/`)
 
-**`src/utils.py`** (186 lines)
+**`src/utils.py`** (148 lines)
 - ✅ Section 1: General utilities (COMPLETE)
   - `setup_logging(log_filename, level)` - Dual logging with UTF-8
   - `set_all_seeds(seed)` - Reproducibility across all RNGs
-- ⏳ Section 2: VRAM monitoring (Phase 4)
+- ⏳ Section 2: VRAM monitoring (PARTIAL - Phase 2 & 4)
+  - `get_model_memory_footprint(model)` - Calculate model memory in MB ✅
+  - Pending: `calculate_vram_percentage()`, `adjust_batch_size_by_vram()`, `dry_run_memory_estimation()`
 - ⏳ Section 3: Image support (Phase 4)
 
 **`src/generation.py`** (155 lines)
@@ -58,18 +60,17 @@ Repo_nuevo/
 **`src/__init__.py`** (7 lines)
 - Package marker with version
 
-**`src/model_loader.py`** (298 lines) - **Phase 2**
-- ✅ `load_model_and_tokenizer()` - Main entry point for model loading
-- ✅ `load_tokenizer()` - Load from HF cache or download
+**`src/model_loader.py`** (284 lines) - **Phase 2**
+- ✅ `load_model_and_tokenizer()` - Main entry point (uses HF automatic cache)
+- ✅ `load_tokenizer()` - Simple wrapper around HF AutoTokenizer
 - ✅ `load_model()` - Unsloth FastLanguageModel integration
 - ✅ `create_baseline_subset()` - Save params to CPU memory
 - ✅ `restore_from_baseline()` - Fast restoration (~1-3s)
 - ✅ `load_image_processor()` - For multimodal experiments
-- ✅ `get_model_memory_footprint()` - Memory statistics
 
-**`src/target_params.py`** (206 lines) - **Phase 2**
-- ✅ Parameter group functions: `get_attn_params()`, `get_mlp_params()`, etc.
-- ✅ `PARAM_GROUPS` dict with 6 groups (attn_only, mlp_only, embed_only, etc.)
+**`src/target_params.py`** (159 lines) - **Phase 2**
+- ✅ Parameter group functions: `get_attn_params()`, `get_mlp_params()`, `get_embedding_params()`
+- ✅ `PARAM_GROUPS` dict with 3 groups (attn_only, mlp_only, embed_only)
 - ✅ `get_param_group(name)` - Config-based parameter selection
 - ✅ `strip_module_prefix()` - Handle DataParallel naming
 - ✅ `validate_param_group()` - Runtime validation against loaded model
@@ -100,15 +101,22 @@ Repo_nuevo/
 
 ### Supporting Files
 
-**`requirements.txt`** (23 lines)
+**`requirements.txt`** (24 lines)
 - Core dependencies: torch, transformers, numpy, pillow, etc.
 - Unsloth for fast model loading
+- **python-dotenv** for .env file support ✅
 - Instructions for PyTorch CUDA 12.1 installation
+
+**`env.example`** (5 lines) - **Phase 2** ✅
+- Template for .env file
+- Shows how to configure HF_TOKEN
+- User copies to .env and adds their token
 
 **`.gitignore`** (35 lines)
 - Excludes full experiment results (results/*.json)
 - Includes sample outputs (results/samples/*.json)
 - Excludes logs (logs/, *.log)
+- **Excludes .env file** (contains secrets)
 - Standard Python artifacts
 
 **`MIGRATION_STATUS.md`** (140 lines)
@@ -134,19 +142,19 @@ src/utils.py (sections 2-3)  # Phase 4: VRAM monitoring & image utilities
 ### Lines of Code (Phases 1-2)
 ```
 Phase 1:
-src/utils.py              : 186 lines (Section 1/3 complete)
+src/utils.py              : 148 lines (Sections 1-2 partial)
 src/generation.py         : 155 lines (complete)
 configs/prompts.py        : 172 lines (complete)
 configs/experiment_configs.py : 135 lines (complete)
 
 Phase 2:
-src/model_loader.py       : 298 lines (complete)
-src/target_params.py      : 206 lines (complete)
+src/model_loader.py       : 284 lines (complete)
+src/target_params.py      : 159 lines (complete)
 ────────────────────────────────────────
-Total new code            : 1,152 lines
+Total new code            : 1,053 lines
 Supporting files          : ~200 lines
 ────────────────────────────────────────
-Grand total               : ~1,350 lines
+Grand total               : ~1,253 lines
 ```
 
 ### Prompts Count

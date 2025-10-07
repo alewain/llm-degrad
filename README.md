@@ -38,8 +38,40 @@ The code is focused exclusively on **generation and perturbation**. Analysis not
 - Install the remaining dependencies with `pip install -r requirements.txt`.
 
 ## Credentials
-- The Hugging Face token is read from the environment variable `HF_TOKEN`.
-- Do not hardcode or commit tokens.
+
+The project requires a HuggingFace token to download models. There are three ways to provide it:
+
+### Option 1: `.env` file (Recommended)
+1. Copy `env.example` to `.env`:
+   ```bash
+   cp env.example .env
+   ```
+2. Edit `.env` and add your token:
+   ```bash
+   HF_TOKEN=your_token_here
+   ```
+3. The `.env` file is automatically loaded when running experiments
+4. **Important:** `.env` is in `.gitignore` and will NOT be committed
+
+### Option 2: Environment Variable
+**Windows (PowerShell):**
+```powershell
+$env:HF_TOKEN = "your_token_here"
+```
+
+**Linux/Mac (Bash):**
+```bash
+export HF_TOKEN="your_token_here"
+```
+
+### Option 3: HuggingFace CLI
+```bash
+huggingface-cli login
+```
+
+**Get your token from:** https://huggingface.co/settings/tokens
+
+**Note:** Never hardcode or commit tokens to the repository.
 
 ## Proposed layout (target structure after migration)
 - `src/`: all Python code (modules + CLI entry point)
@@ -424,7 +456,10 @@ tail -f logs/uni_quant_gemma-3-4b-it_20251006_143022.log
 **Note:** Previous methods `uni_quant_lineal` and `lognorm` from the original code are not included in this version.
 
 ## Parameter groups
-Parameter groups (attn_only, mlp_only, embed_only, etc.) are defined in `src/target_params.py`.
+Three parameter groups are defined in `src/target_params.py`:
+- **attn_only**: Attention value projection parameters (34 layers)
+- **mlp_only**: MLP feed-forward parameters - gate, up, and down projections (102 parameters across 34 layers)
+- **embed_only**: Embedding layer parameters (1 parameter)
 
 **Important:** The current implementation is **hardcoded for Gemma-3-4b** (34 layers). If using a different model architecture, `target_params.py` must be manually adapted to match the new model's layer count and naming conventions.
 

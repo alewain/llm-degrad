@@ -56,7 +56,7 @@ This document tracks the progress of migrating from `experimento.py` to the modu
   - `get_model_memory_footprint()` - Memory statistics utility
 - ✅ Created `src/target_params.py`:
   - Parameter group functions: `get_attn_params()`, `get_mlp_params()`, `get_embedding_params()`
-  - `PARAM_GROUPS` dictionary with 6 groups (attn_only, mlp_only, embed_only, etc.)
+  - `PARAM_GROUPS` dictionary with 3 groups (attn_only, mlp_only, embed_only)
   - `get_param_group()` helper for config-based selection
   - `strip_module_prefix()` to handle DataParallel naming
   - `validate_param_group()` for runtime validation

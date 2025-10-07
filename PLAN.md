@@ -115,6 +115,11 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
   - **VRAM monitoring:** funciones de monitoreo y ajuste dinámico de batch, documentar umbrales, agregar modo `dry-run`
   - **Image support:** funciones de carga de imagen y preparación de prompts multimodales
 - Crear entry point CLI en `src/run_experiment.py`
+  - **IMPORTANTE:** Al inicio del entry point, cargar variables de entorno:
+    ```python
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env file before anything else
+    ```
 - Mantener comportamiento y nombres externos.
 
 5) Fase 5 – Notebooks y muestras (FUTURO)

@@ -30,21 +30,6 @@ def get_attn_params() -> List[str]:
     ]
 
 
-def get_attn_with_output_params() -> List[str]:
-    """
-    Get attention parameters including both V projections and output projections.
-    
-    Returns:
-        List of parameter names for V + O projections across all layers
-    """
-    attn = get_attn_params()
-    attn_o = [
-        f"language_model.model.layers.{i}.self_attn.o_proj.weight"
-        for i in range(NUM_LAYERS)
-    ]
-    return attn + attn_o
-
-
 def get_mlp_params() -> List[str]:
     """
     Get MLP (feed-forward) parameters.
@@ -79,37 +64,14 @@ def get_embedding_params() -> List[str]:
     return ["language_model.model.embed_tokens.weight"]
 
 
-def get_attn_mlp_params() -> List[str]:
-    """
-    Get combined attention + MLP parameters.
-    
-    Returns:
-        List of parameter names for both attention and MLP
-    """
-    return get_attn_params() + get_mlp_params()
-
-
-def get_all_degradable_params() -> List[str]:
-    """
-    Get all degradable parameters (attention + MLP + embeddings).
-    
-    Returns:
-        List of all parameter names that can be degraded
-    """
-    return get_attn_mlp_params() + get_embedding_params()
-
-
 # ============================================================================
 # Parameter groups dictionary (for config-based selection)
 # ============================================================================
 
 PARAM_GROUPS: Dict[str, List[str]] = {
     "attn_only": get_attn_params(),
-    "attn_O_only": get_attn_with_output_params(),
     "mlp_only": get_mlp_params(),
     "embed_only": get_embedding_params(),
-    "attn+mlp": get_attn_mlp_params(),
-    "attn+mlp+embed": get_all_degradable_params(),
 }
 
 
@@ -118,8 +80,7 @@ def get_param_group(group_name: str) -> List[str]:
     Retrieve a parameter group by name.
     
     Args:
-        group_name: Name of the parameter group
-                   ("attn_only", "mlp_only", "embed_only", etc.)
+        group_name: Name of the parameter group ("attn_only", "mlp_only", "embed_only")
     
     Returns:
         List of parameter names in the specified group
@@ -218,6 +179,8 @@ def get_param_counts() -> Dict[str, int]:
         34
         >>> counts['mlp_only']
         102
+        >>> counts['embed_only']
+        1
     """
     return {name: len(params) for name, params in PARAM_GROUPS.items()}
 

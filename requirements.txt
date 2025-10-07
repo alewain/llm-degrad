@@ -12,6 +12,7 @@ transformers>=4.30.0
 sentencepiece>=0.1.99
 accelerate>=0.20.0
 pillow>=10.0.0  # For image loading (Cookie Theft experiment)
+python-dotenv>=1.0.0  # For loading HF_TOKEN from .env file
 
 # Unsloth for fast model loading (optional but recommended)
 # Note: Check https://github.com/unslothai/unsloth for installation instructions

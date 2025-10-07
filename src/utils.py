@@ -13,7 +13,7 @@ import os
 import random
 import numpy as np
 import torch
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 # ============================================================================
@@ -94,10 +94,42 @@ def set_all_seeds(seed: int) -> None:
 
 # ============================================================================
 # Section 2: VRAM monitoring and batch size management
-# TO BE IMPLEMENTED in Phase 4
 # ============================================================================
 
-# Functions to be added:
+def get_model_memory_footprint(model: Any) -> Dict[str, float]:
+    """
+    Calculate model memory footprint.
+    
+    Args:
+        model: PyTorch model
+    
+    Returns:
+        Dictionary with memory statistics in MB:
+        - total_mb: Total parameter memory
+        - per_device: Memory per GPU device
+    
+    Example:
+        >>> mem = get_model_memory_footprint(model)
+        >>> print(f"Model uses {mem['total_mb']:.1f} MB")
+        >>> print(f"Per device: {mem['per_device']}")
+    """
+    total_mem = 0
+    device_mem = {}
+    
+    for param in model.parameters():
+        param_mem = param.nelement() * param.element_size() / (1024 ** 2)  # MB
+        total_mem += param_mem
+        
+        device = str(param.device)
+        device_mem[device] = device_mem.get(device, 0) + param_mem
+    
+    return {
+        "total_mb": total_mem,
+        "per_device": device_mem
+    }
+
+
+# Functions to be added in Phase 4:
 # - calculate_vram_percentage()
 # - adjust_batch_size_by_vram()
 # - dry_run_memory_estimation()

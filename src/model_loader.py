@@ -16,7 +16,7 @@ import logging
 import os
 import time
 import torch
-from typing import Dict, Any, Tuple, Optional, List
+from typing import Dict, Any, Tuple, List
 from transformers import AutoTokenizer, AutoProcessor
 
 # Import unsloth only when actually loading model (avoid import errors in tests)
@@ -35,13 +35,12 @@ def load_model_and_tokenizer(
     dtype: str = "float16",
     load_in_4bit: bool = False,
     max_seq_length: int = 512,
-    tokenizer_save_path: Optional[str] = None,
 ) -> Tuple[Any, Any, Dict[str, torch.Tensor]]:
     """
     Load model, tokenizer, and create baseline subset of degradable parameters.
     
     This is the main entry point for model loading. It:
-    1. Loads tokenizer (from cache or downloads from HF)
+    1. Loads tokenizer (uses HuggingFace automatic cache)
     2. Loads model using Unsloth (fast loading with optimizations)
     3. Creates baseline subset of parameters in CPU memory
     
@@ -52,13 +51,16 @@ def load_model_and_tokenizer(
         dtype: Model dtype ("float16", "float32", "bfloat16")
         load_in_4bit: Whether to load model in 4-bit quantization
         max_seq_length: Maximum sequence length for generation
-        tokenizer_save_path: Optional path to save/load tokenizer locally
     
     Returns:
         Tuple of (model, tokenizer, baseline_subset):
         - model: Loaded PyTorch model
         - tokenizer: HuggingFace tokenizer
         - baseline_subset: Dict mapping param names to CPU tensors
+    
+    Note:
+        Both model and tokenizer use HuggingFace's automatic caching 
+        (~/.cache/huggingface/hub/). No manual cache management needed.
     
     Example:
         >>> model, tokenizer, baseline = load_model_and_tokenizer(
@@ -71,7 +73,7 @@ def load_model_and_tokenizer(
     
     # Load tokenizer
     logging.info(f"Loading tokenizer for {model_name}...")
-    tokenizer = load_tokenizer(model_name, tokenizer_save_path)
+    tokenizer = load_tokenizer(model_name)
     
     # Load model
     logging.info(f"Loading model {model_name}...")
@@ -93,32 +95,21 @@ def load_model_and_tokenizer(
     return model, tokenizer, baseline_subset
 
 
-def load_tokenizer(
-    model_name: str,
-    save_path: Optional[str] = None
-) -> Any:
+def load_tokenizer(model_name: str) -> Any:
     """
-    Load tokenizer from local cache or download from HuggingFace.
+    Load tokenizer using HuggingFace's automatic cache.
     
     Args:
         model_name: HuggingFace model identifier
-        save_path: Optional local path to save/load tokenizer
     
     Returns:
         HuggingFace tokenizer instance
-    """
-    if save_path and os.path.exists(save_path):
-        logging.info(f"Loading tokenizer from local cache: {save_path}")
-        tokenizer = AutoTokenizer.from_pretrained(save_path)
-    else:
-        logging.info(f"Downloading tokenizer from HuggingFace: {model_name}")
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
-        if save_path:
-            logging.info(f"Saving tokenizer to: {save_path}")
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            tokenizer.save_pretrained(save_path)
     
+    Note:
+        Uses HF's automatic cache (~/.cache/huggingface/hub/).
+        First call downloads, subsequent calls use cached version.
+    """
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     return tokenizer
 
 
@@ -144,12 +135,27 @@ def load_model(
     
     Note:
         Uses Unsloth's FastLanguageModel for optimized loading.
-        Falls back to standard HuggingFace loading if Unsloth unavailable.
+        Model weights are cached automatically by HuggingFace.
+        Requires HF_TOKEN environment variable for private/gated models.
     """
     if not UNSLOTH_AVAILABLE:
         raise RuntimeError(
             "Unsloth is required for model loading. "
             "Please install: pip install unsloth"
+        )
+    
+    # Validate HF_TOKEN is present
+    hf_token = os.getenv("HF_TOKEN")
+    if not hf_token:
+        raise RuntimeError(
+            "HF_TOKEN environment variable is required.\n"
+            "Options to set it:\n"
+            "  1. Create a .env file with: HF_TOKEN=your_token_here\n"
+            "  2. Set environment variable:\n"
+            "     - Windows (PowerShell): $env:HF_TOKEN='your_token'\n"
+            "     - Linux/Mac: export HF_TOKEN='your_token'\n"
+            "  3. Run: huggingface-cli login\n"
+            "Get your token from: https://huggingface.co/settings/tokens"
         )
     
     # Convert dtype string to torch dtype
@@ -302,32 +308,4 @@ def load_image_processor(model_name: str) -> Any:
         trust_remote_code=True
     )
     return processor
-
-
-def get_model_memory_footprint(model: Any) -> Dict[str, float]:
-    """
-    Calculate model memory footprint.
-    
-    Args:
-        model: PyTorch model
-    
-    Returns:
-        Dictionary with memory statistics in MB:
-        - total: Total parameter memory
-        - per_device: Memory per GPU device
-    """
-    total_mem = 0
-    device_mem = {}
-    
-    for param in model.parameters():
-        param_mem = param.nelement() * param.element_size() / (1024 ** 2)  # MB
-        total_mem += param_mem
-        
-        device = str(param.device)
-        device_mem[device] = device_mem.get(device, 0) + param_mem
-    
-    return {
-        "total_mb": total_mem,
-        "per_device": device_mem
-    }
 
