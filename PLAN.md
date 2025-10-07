@@ -8,17 +8,13 @@
 
 ## Estructura propuesta (TARGET_DIR=Repo_nuevo) y justificación
 - `src/`: todo el código Python (módulos + entry point)
-  - `src/model_io.py`: carga del modelo/tokenizer y restauración usando estrategia `subset_in_memory` (guarda en memoria solo el subset de parámetros a degradar).
-  - `src/params_groups.py`: definición de grupos de parámetros (attn, mlp, embed) **específica para Gemma-3-4b** (34 capas hardcodeadas). Si se usa otro modelo, debe adaptarse manualmente.
+  - `src/model_loader.py`: carga del modelo/tokenizer y restauración usando estrategia `subset_in_memory` (guarda en memoria solo el subset de parámetros a degradar).
+  - `src/target_params.py`: definición de grupos de parámetros objetivo (attn, mlp, embed) **específica para Gemma-3-4b** (34 capas hardcodeadas). Si se usa otro modelo, debe adaptarse manualmente.
   - `src/degradation.py`: métodos de degradación (mult_gauss, ablation, uni_quant) y utilidades asociadas. 
     - **Métodos eliminados:** `uni_quant_lineal` y `lognorm` (configs cfg10-cfg15) no se incluirán en la migración - no hubo experimentos finales publicados con estos métodos.
-  - `src/generation.py`: funciones actuales de generación/IT wrapper (sin cambiar firmas/salida); `generate_text` unificada con flags opcionales para imagen.
-  - `src/perplexity.py`: cálculo de perplejidad (opcional, desactivado por default).
-  - `src/vram_utils.py`: medición VRAM y ajuste de batch; modo `dry-run` para estimación previa.
-  - `src/image_utils.py`: carga de imagen y preparación de prompts para modelos multimodales (Cookie Theft).
-  - `src/persistence.py`: guardado/retome en un único JSON por corrida, resistente a interrupciones.
-  - `src/orchestrator.py`: `run_experiment` factoriza restaurar/perturbar/generar/persistir (misma lógica).
-  - `src/utils.py`: utilidades comunes (`setup_logging`, `set_all_seeds`).
+  - `src/generation.py`: funciones de generación/IT wrapper, `generate_text` unificada con flags opcionales para imagen, y cálculo de perplejidad (opcional, desactivado por default).
+  - `src/pipeline.py`: función principal `run_experiment` que coordina todo el flujo (restaurar/perturbar/generar), además de funciones de persistencia (guardado/retomado de JSON, resistente a interrupciones).
+  - `src/utils.py`: utilidades comunes organizadas en tres secciones: (1) logging estándar y seeds para reproducibilidad, (2) monitoreo VRAM y ajuste dinámico de batch, (3) carga de imagen y preparación de prompts multimodales.
   - `src/run_experiment.py`: **entry point CLI** para ejecutar experimentos.
 - `configs/experiment_configs.py`: definiciones de configuraciones usando dataclasses (perfiles de experimentos).
   - Usa `@dataclass` con type hints para validación automática
@@ -88,31 +84,37 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
   - Eliminar función `load_prompts()` de `src/utils.py` (ya no es necesaria)
 - Documentar en `README` el uso de `HF_TOKEN` por variable de entorno.
 
-2) Fase 2 – IO de modelo y restauración
-- Implementar `model_io.py` con estrategia `subset_in_memory`: guarda el subset de parámetros degradables en memoria CPU al inicio del experimento y restaura desde ahí antes de cada nivel de degradación.
+2) Fase 2 – Carga de modelo y restauración
+- Implementar `model_loader.py` con estrategia `subset_in_memory`: guarda el subset de parámetros degradables en memoria CPU al inicio del experimento y restaura desde ahí antes de cada nivel de degradación.
 - Añadir docstrings/typing y logs mínimos.
 
-3) Fase 3 – Degradación, VRAM y persistencia
+3) Fase 3 – Degradación y generación
 - Mover degradaciones a `degradation.py` y limitar métodos a: `mult_gauss`, `ablation`, `uni_quant`.
 - **Eliminar completamente:** 
   - Métodos `uni_quant_lineal` y `lognorm` (no se portean)
   - Configs cfg10-cfg15 (no se migran a dataclasses)
-- **Perplejidad (opcional y aislada):**
-  - Mover a módulo separado `src/perplexity.py` con función `evaluate_perplexity(model, tokenizer, text)`
+- Implementar `generation.py` con funciones de generación y perplejidad:
+  - `generate_text()`: generación principal con soporte opcional para imágenes
+  - `wrap_chat_it()`: wrapper para formato instruction-tuned
+  - `evaluate_perplexity()`: cálculo de perplejidad (opcional, desactivado por default)
   - Campo en config: `compute_perplexity: bool = False` (desactivado por default)
   - Campo en config: `perplexity_text: str = ""` (texto de evaluación, solo si compute_perplexity=True)
   - Si activado, se calcula una vez por nivel de degradación (no por repetición)
   - Resultado se guarda en campo opcional `perplexity` del JSON de salida
-- `vram_utils.py`: documentar umbrales y agregar `dry-run`.
-- `persistence.py`: JSON único por corrida, resistente a interrupciones.
+
+4) Fase 4 – Pipeline principal y utilidades
+- Implementar `pipeline.py` con función principal `run_experiment` y funciones de persistencia:
+  - Coordina todo el flujo: restaurar → perturbar → generar → persistir
+  - Funciones de guardado/carga JSON, resistente a interrupciones
   - Al inicio, carga el JSON existente (si existe) y construye set de prompts ya computados
   - Identifica prompts faltantes comparando con la combinación (param_group, std_dev, repeat_index, degradation_method, prompt_text)
   - Solo ejecuta los prompts que faltan
   - Guarda periódicamente (cada X prompts procesados) para minimizar pérdida en caso de interrupción
-  - Permite retomar experimentos interrumpidos sin re-ejecutar trabajo ya hecho
-
-4) Fase 4 – Orquestador y entry point
-- Factorizar `run_experiment` en `orchestrator.py` y crear entry point CLI en `src/run_experiment.py`.
+- Implementar `utils.py` con tres secciones claramente diferenciadas:
+  - **Utilidades generales:** `setup_logging()`, `set_all_seeds()`
+  - **VRAM monitoring:** funciones de monitoreo y ajuste dinámico de batch, documentar umbrales, agregar modo `dry-run`
+  - **Image support:** funciones de carga de imagen y preparación de prompts multimodales
+- Crear entry point CLI en `src/run_experiment.py`
 - Mantener comportamiento y nombres externos.
 
 5) Fase 5 – Notebooks y muestras (FUTURO)
@@ -122,7 +124,7 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
 - Proveer muestras mínimas de resultados (100-200 registros por método) en `results/samples/` para versionar.
 
 ## Mejoras futuras (fuera del alcance inicial)
-- **Detección automática de capas:** Implementar función que detecte el número de capas del modelo automáticamente, eliminando el hardcoding en `params_groups.py` (actualmente específico para Gemma-3-4b con 34 capas).
+- **Detección automática de capas:** Implementar función que detecte el número de capas del modelo automáticamente, eliminando el hardcoding en `target_params.py` (actualmente específico para Gemma-3-4b con 34 capas).
 - **Validación de arquitectura:** Agregar validación que verifique que el modelo cargado coincide con los grupos de parámetros definidos.
 - **Soporte multi-modelo:** Extender soporte a otras familias de modelos (LLaMA, Mistral, etc.).
 - **Flag `force_run`:** Implementar flag opcional para forzar re-ejecución de prompts ya computados (sobrescribir resultados existentes). Actualmente, el sistema siempre retoma desde donde quedó, sin opción de sobrescribir. El flag permitiría:
@@ -166,7 +168,7 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
 ## Imagen (Cookie Theft)
 - Si `image.enabled=true`: `max_seq_length` se ajusta automáticamente a 1024 (vs. 512 por defecto).
 - La función `generate_text` acepta parámetros opcionales `processor` e `image`; procesa condicionalmente según presencia de imagen.
-- Manejo aislado en `image_utils.py` para carga y preparación, integración en `generate_text` mediante flags.
+- Funciones de carga y preparación de imágenes están en la sección "Image support" de `utils.py`, integración en `generate_text` mediante flags.
 
 ## Política de restauración
 

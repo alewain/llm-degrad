@@ -43,8 +43,15 @@ The code is focused exclusively on **generation and perturbation**. Analysis not
 
 ## Proposed layout (target structure after migration)
 - `src/`: all Python code (modules + CLI entry point)
-  - Core modules: `model_io.py`, `params_groups.py`, `degradation.py`, `generation.py`, `perplexity.py`, `vram_utils.py`, `image_utils.py`, `persistence.py`, `orchestrator.py`, `utils.py`
-  - Entry point: `run_experiment.py`
+  - **Core modules (6 files):**
+    - `model_loader.py` - Loads model/tokenizer from HuggingFace and implements fast in-memory restoration of degraded parameters.
+    - `target_params.py` - Defines parameter groups (attention, MLP, embeddings) to target for degradation, hardcoded for Gemma-3-4b.
+    - `degradation.py` - Implements degradation methods (mult_gauss, ablation, uni_quant) that perturb model weights.
+    - `generation.py` - Handles text generation with optional image support and perplexity calculation.
+    - `pipeline.py` - Orchestrates the complete experiment flow and manages JSON persistence with resume capability.
+    - `utils.py` - Provides logging setup, seed management, VRAM monitoring, and image utilities.
+  - **Entry point:**
+    - `run_experiment.py` - CLI script to execute experiments by config name.
 - `configs/`: Python configurations
   - `experiment_configs.py`: dataclass-based experiment configurations
   - `prompts.py`: prompt lists organized by task and model variant
@@ -417,9 +424,9 @@ tail -f logs/uni_quant_gemma-3-4b-it_20251006_143022.log
 **Note:** Previous methods `uni_quant_lineal` and `lognorm` from the original code are not included in this version.
 
 ## Parameter groups
-Parameter groups (attn_only, mlp_only, embed_only, etc.) are defined in `src/params_groups.py`.
+Parameter groups (attn_only, mlp_only, embed_only, etc.) are defined in `src/target_params.py`.
 
-**Important:** The current implementation is **hardcoded for Gemma-3-4b** (34 layers). If using a different model architecture, `params_groups.py` must be manually adapted to match the new model's layer count and naming conventions.
+**Important:** The current implementation is **hardcoded for Gemma-3-4b** (34 layers). If using a different model architecture, `target_params.py` must be manually adapted to match the new model's layer count and naming conventions.
 
 ## Quantization (4-bit)
 The pipeline supports 4-bit quantization to reduce VRAM usage:
@@ -486,11 +493,11 @@ This ensures complete reproducibility across all stochastic operations in the pi
 ## Image input (Cookie Theft)
 - When `image_enabled=True`, `max_seq_length` is automatically adjusted to 1024 (vs. 512 by default).
 - Image processing uses `AutoProcessor` and is integrated into `generate_text` via optional parameters.
-- Image loading and preparation handled in `image_utils.py`.
+- Image loading and preparation handled in the image support section of `utils.py`.
 
 ## Perplexity calculation (optional)
 Perplexity evaluation is **disabled by default** but can be enabled per experiment:
-- **Module:** `src/perplexity.py` (isolated implementation)
+- **Module:** `src/generation.py` (integrated with generation functions)
 - **Config fields:**
   - `compute_perplexity: bool = False` (set to `True` to enable)
   - `perplexity_text: str = "..."` (text to evaluate, only used if enabled)
@@ -539,7 +546,7 @@ If you have results from the original `experimento.py`, they remain fully compat
 ## Limitations and Future Work
 
 ### Current Limitations
-- **Model-specific:** The parameter groups (`params_groups.py`) are hardcoded for Gemma-3-4b (34 layers). Using other models requires manual adaptation.
+- **Model-specific:** The parameter groups (`target_params.py`) are hardcoded for Gemma-3-4b (34 layers). Using other models requires manual adaptation.
 - **Notebooks not migrated:** The original analysis notebooks (in `Archivos/`) have not been migrated to work with the new code structure. They remain compatible with the original JSON outputs.
 - **Single model support:** Only tested with Gemma 3 4B. Larger or smaller models may require adjustments to VRAM management and batch sizing.
 - **Local execution only:** Designed for local GPU execution. Cloud/Colab support was intentionally removed.
