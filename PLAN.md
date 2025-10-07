@@ -9,13 +9,13 @@
 ## Estructura propuesta (TARGET_DIR=Repo_nuevo) y justificación
 - `src/`: todo el código Python (módulos + entry point)
   - `src/model_loader.py`: carga del modelo/tokenizer y restauración usando estrategia `subset_in_memory` (guarda en memoria solo el subset de parámetros a degradar).
-  - `src/target_params.py`: definición de grupos de parámetros objetivo (attn, mlp, embed) **específica para Gemma-3-4b** (34 capas hardcodeadas). Si se usa otro modelo, debe adaptarse manualmente.
+  - `src/degradation.py`: definición de grupos de parámetros objetivo (attn, mlp, embed) **específica para Gemma-3-4b** (34 capas hardcodeadas), más los métodos de degradación (mult_gauss, ablation, uni_quant). Si se usa otro modelo, debe adaptarse manualmente.
   - `src/degradation.py`: métodos de degradación (mult_gauss, ablation, uni_quant) y utilidades asociadas. 
     - **Métodos eliminados:** `uni_quant_lineal` y `lognorm` (configs cfg10-cfg15) no se incluirán en la migración - no hubo experimentos finales publicados con estos métodos.
   - `src/generation.py`: funciones de generación/IT wrapper, `generate_text` unificada con flags opcionales para imagen, y cálculo de perplejidad (opcional, desactivado por default).
   - `src/pipeline.py`: función principal `run_experiment` que coordina todo el flujo (restaurar/perturbar/generar), además de funciones de persistencia (guardado/retomado de JSON, resistente a interrupciones).
   - `src/utils.py`: utilidades comunes organizadas en tres secciones: (1) logging estándar y seeds para reproducibilidad, (2) monitoreo VRAM y ajuste dinámico de batch, (3) carga de imagen y preparación de prompts multimodales.
-  - `src/run_experiment.py`: **entry point CLI** para ejecutar experimentos.
+  - `src/main.py`: **entry point CLI** para ejecutar experimentos.
 - `configs/experiment_configs.py`: definiciones de configuraciones usando dataclasses (perfiles de experimentos).
   - Usa `@dataclass` con type hints para validación automática
   - Permite composición (herencia de configs base)
@@ -114,7 +114,7 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
   - **Utilidades generales:** `setup_logging()`, `set_all_seeds()`
   - **VRAM monitoring:** funciones de monitoreo y ajuste dinámico de batch, documentar umbrales, agregar modo `dry-run`
   - **Image support:** funciones de carga de imagen y preparación de prompts multimodales
-- Crear entry point CLI en `src/run_experiment.py`
+- Crear entry point CLI en `src/main.py`
   - **IMPORTANTE:** Al inicio del entry point, cargar variables de entorno:
     ```python
     from dotenv import load_dotenv
@@ -129,7 +129,7 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
 - Proveer muestras mínimas de resultados (100-200 registros por método) en `results/samples/` para versionar.
 
 ## Mejoras futuras (fuera del alcance inicial)
-- **Detección automática de capas:** Implementar función que detecte el número de capas del modelo automáticamente, eliminando el hardcoding en `target_params.py` (actualmente específico para Gemma-3-4b con 34 capas).
+- **Detección automática de capas:** Implementar función que detecte el número de capas del modelo automáticamente, eliminando el hardcoding en `degradation.py` (actualmente específico para Gemma-3-4b con 34 capas).
 - **Validación de arquitectura:** Agregar validación que verifique que el modelo cargado coincide con los grupos de parámetros definidos.
 - **Soporte multi-modelo:** Extender soporte a otras familias de modelos (LLaMA, Mistral, etc.).
 - **Flag `force_run`:** Implementar flag opcional para forzar re-ejecución de prompts ya computados (sobrescribir resultados existentes). Actualmente, el sistema siempre retoma desde donde quedó, sin opción de sobrescribir. El flag permitiría:

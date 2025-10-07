@@ -30,7 +30,6 @@ This document tracks the progress of migrating from `experimento.py` to the modu
   - `generate_text()` - Unified generation with optional image support
   - `evaluate_perplexity()` - Optional perplexity calculation
 - ✅ Updated `.gitignore` for new structure
-- ✅ Created package `__init__.py` files
 
 ### Notes:
 - All prompts extracted from `experimento.py` lines 5-197
@@ -54,11 +53,10 @@ This document tracks the progress of migrating from `experimento.py` to the modu
   - `restore_from_baseline()` - Fast restoration from in-memory baseline
   - `load_image_processor()` - For multimodal experiments
   - `get_model_memory_footprint()` - Memory statistics utility
-- ✅ Created `src/target_params.py`:
-  - Parameter group functions: `get_attn_params()`, `get_mlp_params()`, `get_embedding_params()`
+- ✅ Parameter groups merged into `src/degradation.py`:
+  - Parameter group definitions: `ATTN_PARAMS`, `MLP_PARAMS`, `EMBED_PARAMS`
   - `PARAM_GROUPS` dictionary with 3 groups (attn_only, mlp_only, embed_only)
   - `get_param_group()` helper for config-based selection
-  - `strip_module_prefix()` to handle DataParallel naming
   - `validate_param_group()` for runtime validation
   - Hardcoded for Gemma-3-4b (34 layers) with clear documentation
 
@@ -103,7 +101,7 @@ This document tracks the progress of migrating from `experimento.py` to the modu
 - ⬜ Complete `src/utils.py` Section 3 (Image):
   - `load_image()` - Load Cookie Theft image
   - `prepare_prompt_with_image()` - Multimodal prompt preparation
-- ⬜ Create `src/run_experiment.py`:
+- ⬜ Create `src/main.py`:
   - CLI entry point with argparse
   - Accept `--config` argument (e.g., `--config dreams_it`)
   - Initialize logging, load config, run experiment
@@ -137,7 +135,7 @@ This document tracks the progress of migrating from `experimento.py` to the modu
 - CLI entry point
 
 **Next immediate step:**
-Start Phase 2 by implementing `src/model_loader.py` and `src/target_params.py`.
+Start Phase 2 by implementing `src/model_loader.py` and parameter groups in `src/degradation.py`.
 
 ---
 
@@ -145,7 +143,7 @@ Start Phase 2 by implementing `src/model_loader.py` and `src/target_params.py`.
 
 Once Phase 4 is complete, test with:
 ```bash
-python src/run_experiment.py --config dreams_it
+python src/main.py --config dreams_it
 ```
 
 Expected behavior: Load model, apply degradations, generate outputs, save to `results/`.

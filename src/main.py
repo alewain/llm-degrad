@@ -2,9 +2,9 @@
 CLI entry point for running LLM degradation experiments.
 
 Usage:
-    python src/run_experiment.py --config dreams_it
-    python src/run_experiment.py --config iq_it
-    python src/run_experiment.py --config cookie_theft_it
+    python src/main.py --config dreams_it
+    python src/main.py --config iq_it
+    python src/main.py --config cookie_theft_it
 """
 
 import argparse
@@ -28,9 +28,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python src/run_experiment.py --config dreams_it
-  python src/run_experiment.py --config iq_it
-  python src/run_experiment.py --config cookie_theft_it
+  python src/main.py --config dreams_it
+  python src/main.py --config iq_it
+  python src/main.py --config cookie_theft_it
 
 Available configs:
   - dreams_it: Dream narration task (~38 prompts)

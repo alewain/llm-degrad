@@ -8,14 +8,11 @@ Visual overview of the current repository structure after Phase 1 completion.
 Repo_nuevo/
 │
 ├── src/                                # Core Python modules
-│   ├── __init__.py                    # Package marker (v1.0.0)
 │   ├── utils.py                       # ✅ Logging & seeds (Section 1/3 complete)
 │   ├── generation.py                  # ✅ Text generation & perplexity
 │   ├── model_loader.py                # ✅ Model loading & restoration (Phase 2)
-│   └── target_params.py               # ✅ Parameter groups for Gemma-3-4b (Phase 2)
 │
 ├── configs/                            # Configuration files
-│   ├── __init__.py                    # Package marker
 │   ├── prompts.py                     # ✅ 3 prompt lists (IT only, 123 total)
 │   └── experiment_configs.py          # ✅ Dataclass configs (3 experiments)
 │
@@ -57,9 +54,6 @@ Repo_nuevo/
   - Basic VRAM monitoring
 - ✅ `evaluate_perplexity(model, tokenizer, text)` - Optional perplexity calc
 
-**`src/__init__.py`** (7 lines)
-- Package marker with version
-
 **`src/model_loader.py`** (284 lines) - **Phase 2**
 - ✅ `load_model_and_tokenizer()` - Main entry point (uses HF automatic cache)
 - ✅ `load_tokenizer()` - Simple wrapper around HF AutoTokenizer
@@ -67,14 +61,6 @@ Repo_nuevo/
 - ✅ `create_baseline_subset()` - Save params to CPU memory
 - ✅ `restore_from_baseline()` - Fast restoration (~1-3s)
 - ✅ `load_image_processor()` - For multimodal experiments
-
-**`src/target_params.py`** (159 lines) - **Phase 2**
-- ✅ Parameter group functions: `get_attn_params()`, `get_mlp_params()`, `get_embedding_params()`
-- ✅ `PARAM_GROUPS` dict with 3 groups (attn_only, mlp_only, embed_only)
-- ✅ `get_param_group(name)` - Config-based parameter selection
-- ✅ `strip_module_prefix()` - Handle DataParallel naming
-- ✅ `validate_param_group()` - Runtime validation against loaded model
-- ✅ Hardcoded for Gemma-3-4b (34 layers) with clear documentation
 
 ### Configuration Files (`configs/`)
 
@@ -95,9 +81,6 @@ Repo_nuevo/
 - ✅ `iq_it` - IQ assessment config
 - ✅ `cookie_theft_it` - Cookie Theft config (image_enabled=True)
 - ✅ `get_config(name)` - Helper function to retrieve configs
-
-**`configs/__init__.py`** (6 lines)
-- Package marker
 
 ### Supporting Files
 
@@ -130,7 +113,7 @@ Repo_nuevo/
 src/
 ├── degradation.py           # Phase 3: Degradation methods (mult_gauss, ablation, uni_quant)
 ├── pipeline.py              # Phase 4: Orchestration & persistence
-└── run_experiment.py        # Phase 4: CLI entry point
+└── main.py                  # Phase 4: CLI entry point
 ```
 
 ```
@@ -149,7 +132,6 @@ configs/experiment_configs.py : 135 lines (complete)
 
 Phase 2:
 src/model_loader.py       : 284 lines (complete)
-src/target_params.py      : 159 lines (complete)
 ────────────────────────────────────────
 Total new code            : 1,053 lines
 Supporting files          : ~200 lines

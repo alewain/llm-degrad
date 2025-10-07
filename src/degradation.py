@@ -1,18 +1,123 @@
 """
-Degradation methods for LLM perturbation experiments.
+Parameter groups and degradation methods for LLM perturbation experiments.
 
-This module implements three controlled degradation methods:
-- mult_gauss: Multiplicative Gaussian noise
-- ablation: Random masking (set weights to zero)
-- uni_quant: Uniform quantization
+This module handles:
+1. Parameter group definitions (which model components to target)
+2. Degradation methods (how to perturb those components)
 
-Each method perturbs model parameters in a controlled, reproducible way.
+Currently configured for Gemma-3-4b-IT (34 layers).
+
+WARNING: If using a different model architecture, modify the 
+"Gemma-3-4b-IT specific definitions" section below.
 """
 
 import logging
 import torch
-from typing import List, Any
+from typing import Dict, List, Any
 
+
+# ============================================================================
+# Gemma-3-4b-IT specific definitions
+# ============================================================================
+
+# Number of layers in Gemma-3-4b
+NUM_LAYERS = 34
+
+# Attention parameters (V matrices)
+ATTN_PARAMS = [
+    f"language_model.model.layers.{i}.self_attn.v_proj.weight"
+    for i in range(NUM_LAYERS)
+]
+
+# MLP parameters (gate, up, down projections)
+MLP_PARAMS = [
+    f"language_model.model.layers.{i}.mlp.{proj}_proj.weight"
+    for i in range(NUM_LAYERS)
+    for proj in ["gate", "up", "down"]
+]
+
+# Embedding parameters
+EMBED_PARAMS = ["language_model.model.embed_tokens.weight"]
+
+# Parameter groups dictionary (for config-based selection)
+PARAM_GROUPS: Dict[str, List[str]] = {
+    "attn_only": ATTN_PARAMS,
+    "mlp_only": MLP_PARAMS,
+    "embed_only": EMBED_PARAMS,
+}
+
+
+# ============================================================================
+# Parameter group selection and validation
+# ============================================================================
+
+def get_param_group(group_name: str) -> List[str]:
+    """
+    Retrieve a parameter group by name.
+    
+    Args:
+        group_name: Name of the parameter group ("attn_only", "mlp_only", "embed_only")
+    
+    Returns:
+        List of parameter names in the specified group
+    
+    Raises:
+        ValueError: If the group name is not recognized
+    
+    Example:
+        >>> params = get_param_group("attn_only")
+        >>> len(params)
+        34
+    """
+    if group_name not in PARAM_GROUPS:
+        raise ValueError(
+            f"Unknown parameter group: {group_name}. "
+            f"Available groups: {list(PARAM_GROUPS.keys())}"
+        )
+    return PARAM_GROUPS[group_name]
+
+
+def validate_param_group(model, group_name: str) -> bool:
+    """
+    Validate that all parameters in a group exist in the model.
+    
+    Args:
+        model: PyTorch model to validate against
+        group_name: Name of the parameter group to validate
+    
+    Returns:
+        True if all parameters exist, False otherwise
+    
+    Note:
+        Logs warnings for any missing parameters.
+    """
+    expected_params = set(get_param_group(group_name))
+    # Remove 'module.' prefix if present (DataParallel compatibility)
+    model_params = {n[7:] if n.startswith("module.") else n for n, _ in model.named_parameters()}
+    
+    missing = expected_params - model_params
+    
+    if missing:
+        logging.warning(
+            f"Parameter group '{group_name}' validation failed. "
+            f"Missing {len(missing)} parameters:"
+        )
+        for param in sorted(missing)[:5]:  # Show first 5
+            logging.warning(f"  - {param}")
+        if len(missing) > 5:
+            logging.warning(f"  ... and {len(missing) - 5} more")
+        return False
+    
+    logging.info(
+        f"✅ Parameter group '{group_name}' validated: "
+        f"{len(expected_params)} parameters found"
+    )
+    return True
+
+
+# ============================================================================
+# Degradation methods
+# ============================================================================
 
 def quantise_tensor_uniform(tensor: torch.Tensor, n_vals: int) -> torch.Tensor:
     """
@@ -45,7 +150,7 @@ def quantise_tensor_uniform(tensor: torch.Tensor, n_vals: int) -> torch.Tensor:
 def apply_degradation(
     model: Any,
     param_names: List[str],
-    param_val: float,
+    degrad_level: float,
     method: str = "mult_gauss"
 ) -> int:
     """
@@ -54,10 +159,15 @@ def apply_degradation(
     This function modifies model parameters in-place according to the specified
     degradation method. It handles DataParallel-wrapped models automatically.
     
+    Degradation methods:
+    - mult_gauss: Multiplicative Gaussian noise (weight *= N(1, degrad_level))
+    - ablation: Random masking (weight *= Bernoulli(1 - degrad_level))
+    - uni_quant: Uniform quantization to degrad_level levels
+    
     Args:
         model: PyTorch model to degrade
         param_names: List of parameter names to target (without 'module.' prefix)
-        param_val: Degradation parameter value:
+        degrad_level: Degradation level value:
             - mult_gauss: standard deviation of multiplicative noise
             - ablation: probability of masking (0-1)
             - uni_quant: number of quantization levels (integer)
@@ -78,7 +188,7 @@ def apply_degradation(
     
     with torch.no_grad():
         if method == "mult_gauss":
-            # Multiplicative Gaussian noise: weight *= N(1, param_val)
+            # Multiplicative Gaussian noise: weight *= N(1, degrad_level)
             for name, param in model.named_parameters():
                 # Remove 'module.' prefix if present (DataParallel compatibility)
                 name_clean = name[7:] if name.startswith("module.") else name
@@ -86,7 +196,7 @@ def apply_degradation(
                 if name_clean in param_names:
                     noise = torch.normal(
                         mean=1.0,
-                        std=param_val,
+                        std=degrad_level,
                         size=param.shape,
                         device=param.device,
                         dtype=param.dtype
@@ -95,24 +205,24 @@ def apply_degradation(
                     n_tensores_modificados += 1
         
         elif method == "ablation":
-            # Random masking: weight *= Bernoulli(1 - param_val)
+            # Random masking: weight *= Bernoulli(1 - degrad_level)
             for name, param in model.named_parameters():
                 # Remove 'module.' prefix if present (DataParallel compatibility)
                 name_clean = name[7:] if name.startswith("module.") else name
                 
                 if name_clean in param_names:
-                    mask = (torch.rand_like(param) > param_val).to(param.dtype)
+                    mask = (torch.rand_like(param) > degrad_level).to(param.dtype)
                     param.mul_(mask)
                     n_tensores_modificados += 1
         
         elif method == "uni_quant":
-            # Uniform quantization: quantize to param_val levels
+            # Uniform quantization: quantize to degrad_level levels
             for name, param in model.named_parameters():
                 # Remove 'module.' prefix if present (DataParallel compatibility)
                 name_clean = name[7:] if name.startswith("module.") else name
                 
                 if name_clean in param_names:
-                    quantised = quantise_tensor_uniform(param, int(param_val))
+                    quantised = quantise_tensor_uniform(param, int(degrad_level))
                     n_unique = len(torch.unique(quantised))
                     changed = not torch.allclose(param, quantised)
                     param.copy_(quantised)
@@ -135,4 +245,3 @@ def apply_degradation(
         logging.info(f"[apply_degradation] Modified {n_tensores_modificados} parameters")
     
     return n_tensores_modificados
-

@@ -13,13 +13,27 @@ import os
 import time
 import numpy as np
 from datetime import datetime
-from typing import Dict, List, Tuple, Set, Any
+from typing import Dict, List, Tuple, Set, Any, NamedTuple
 
 from configs.experiment_configs import ExperimentConfig
 from src.utils import set_all_seeds, calculate_vram_percentage, adjust_batch_size_by_vram
 from src.model_loader import restore_from_baseline
 from src.degradation import apply_degradation
 from src.generation import generate_text, evaluate_perplexity
+
+
+class ExperimentState(NamedTuple):
+    """Container for experiment state shared across pipeline phases."""
+    model: Any
+    tokenizer: Any
+    baseline_subset: Dict
+    processor: Any
+    image: Any
+    param_names: List[str]
+    deg_levels: List[float]
+    output_path: str
+    results: List[Dict]
+    computed_prompts_set: Set[Tuple]
 
 
 def generate_degradation_levels(
@@ -108,7 +122,7 @@ def load_existing_results(output_path: str) -> Tuple[List[Dict], Set[Tuple]]:
 def is_prompt_computed(
     computed_prompts: Set[Tuple],
     param_group: str,
-    std_val: float,
+    degrad_level: float,
     repeat_index: int,
     method: str,
     prompt_text: str
@@ -119,7 +133,7 @@ def is_prompt_computed(
     Args:
         computed_prompts: Set of computed prompt keys
         param_group: Parameter group name
-        std_val: Degradation level value
+        degrad_level: Degradation level value
         repeat_index: Repetition index
         method: Degradation method
         prompt_text: Prompt text
@@ -127,7 +141,7 @@ def is_prompt_computed(
     Returns:
         True if prompt was already computed, False otherwise
     """
-    key = (param_group, round(float(std_val), 2), repeat_index, method, prompt_text.strip())
+    key = (param_group, round(float(degrad_level), 2), repeat_index, method, prompt_text.strip())
     return key in computed_prompts
 
 
@@ -148,54 +162,47 @@ def save_results(output_path: str, results: List[Dict], indent: int = None) -> N
         raise
 
 
-def run_experiment(config: ExperimentConfig) -> None:
+def setup_experiment(config: ExperimentConfig) -> ExperimentState:
     """
-    Run complete degradation experiment.
+    Setup phase: Load model, prepare degradation levels, initialize state.
     
-    This is the main pipeline function that orchestrates:
-    - Model loading
-    - Degradation level generation
-    - Experiment loop (restore → degrade → generate)
-    - JSON persistence with resume capability
+    This function handles all initialization:
+    - Logging experiment information
+    - Loading model, tokenizer, and baseline
+    - Loading image processor and image (if multimodal)
+    - Generating degradation levels
+    - Setting up output paths
+    - Loading existing results (for resume capability)
     
     Args:
-        config: Experiment configuration (dataclass)
+        config: Experiment configuration
     
-    Note:
-        This function is designed to be resumable. If interrupted, it will
-        automatically continue from where it left off on the next run.
+    Returns:
+        ExperimentState with all initialized components
     """
     from src.model_loader import load_model_and_tokenizer, load_image_processor
-    from src.target_params import get_param_group
-    from src.utils import load_image, prepare_prompt_with_image
+    from src.degradation import get_param_group
+    from src.utils import load_image
     
-    # Extract config parameters
-    model_name = config.model_name
-    param_group_name = config.param_group_name
-    degradation_method = config.degradation_method
-    prompts = config.prompts
-    n_rep = config.n_rep
-    max_batch_size = config.max_batch_size
-    seed_base = config.seed
-    
+    # Log experiment info
     logging.info("=" * 60)
     logging.info(f"Starting experiment: {config.config_name}")
-    logging.info(f"Model: {model_name}")
-    logging.info(f"Degradation: {degradation_method} on {param_group_name}")
-    logging.info(f"Prompts: {len(prompts)}")
-    logging.info(f"Repetitions: {n_rep}")
+    logging.info(f"Model: {config.model_name}")
+    logging.info(f"Degradation: {config.degradation_method} on {config.param_group_name}")
+    logging.info(f"Prompts: {len(config.prompts)}")
+    logging.info(f"Repetitions: {config.n_rep}")
     logging.info(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logging.info("=" * 60)
     
     # Set initial seeds
-    set_all_seeds(seed_base)
+    set_all_seeds(config.seed)
     
     # Get parameter names for degradation
-    param_names = get_param_group(param_group_name)
+    param_names = get_param_group(config.param_group_name)
     
     # Load model, tokenizer, and baseline
     model, tokenizer, baseline_subset = load_model_and_tokenizer(
-        model_name=model_name,
+        model_name=config.model_name,
         param_names=param_names,
         device=config.device,
         dtype=config.dtype,
@@ -207,20 +214,20 @@ def run_experiment(config: ExperimentConfig) -> None:
     processor = None
     image = None
     if config.image_enabled:
-        processor = load_image_processor(model_name)
+        processor = load_image_processor(config.model_name)
         image = load_image(config.image_filename)
     
     # Generate degradation levels
     deg_levels = generate_degradation_levels(
-        degradation_method,
+        config.degradation_method,
         config.min_deg,
         config.max_deg,
         config.deg_steps
     )
     
     # Setup output path
-    model_name_clean = model_name.split("/")[-1].replace("/", "-")
-    json_filename = f"outputs_{degradation_method}_{model_name_clean}_{config.name_suffix}.json"
+    model_name_clean = config.model_name.split("/")[-1].replace("/", "-")
+    json_filename = f"outputs_{config.degradation_method}_{model_name_clean}_{config.name_suffix}.json"
     output_path = os.path.join("results", json_filename)
     os.makedirs("results", exist_ok=True)
     logging.info(f"Output file: {output_path}")
@@ -228,12 +235,72 @@ def run_experiment(config: ExperimentConfig) -> None:
     # Load existing results (for resume capability)
     results, computed_prompts_set = load_existing_results(output_path)
     
-    # Main experiment loop
+    return ExperimentState(
+        model=model,
+        tokenizer=tokenizer,
+        baseline_subset=baseline_subset,
+        processor=processor,
+        image=image,
+        param_names=param_names,
+        deg_levels=deg_levels,
+        output_path=output_path,
+        results=results,
+        computed_prompts_set=computed_prompts_set
+    )
+
+
+def run_experiment_loop(
+    state: ExperimentState,
+    config: ExperimentConfig
+) -> Tuple[List[Dict], float]:
+    """
+    Main experiment loop: Restore → Degrade → Generate → Save.
+    
+    This function executes the core experiment loop:
+    - Iterate over degradation levels
+    - Iterate over repetitions
+    - Restore model from baseline
+    - Apply degradation
+    - Generate outputs for all prompts
+    - Save results periodically
+    
+    Args:
+        state: ExperimentState with model, tokenizer, baseline, etc.
+        config: Experiment configuration
+    
+    Returns:
+        Tuple of (results list, total_duration)
+    """
+    from src.utils import prepare_prompt_with_image
+    
+    # Unpack state
+    model = state.model
+    tokenizer = state.tokenizer
+    baseline_subset = state.baseline_subset
+    processor = state.processor
+    image = state.image
+    param_names = state.param_names
+    deg_levels = state.deg_levels
+    output_path = state.output_path
+    results = state.results
+    computed_prompts_set = state.computed_prompts_set
+    
+    # Unpack config
+    model_name = config.model_name
+    param_group_name = config.param_group_name
+    degradation_method = config.degradation_method
+    prompts = config.prompts
+    n_rep = config.n_rep
+    max_batch_size = config.max_batch_size
+    seed_base = config.seed
+    
+    # Initialize loop state
     experiment_start_time = time.time()
     prompt_counter = 0
     batch_size = max_batch_size
     
-    for level_idx, std_val in enumerate(deg_levels):
+    # Main experiment loop
+    for level_idx, degrad_level in enumerate(deg_levels):
         level_start_time = time.time()
         
         for repeat_index in range(n_rep):
@@ -244,7 +311,7 @@ def run_experiment(config: ExperimentConfig) -> None:
             set_all_seeds(local_seed)
             
             logging.info(
-                f"\n\n=== [{degradation_method}] level={std_val:.4f} | {param_group_name} | "
+                f"\n\n=== [{degradation_method}] level={degrad_level:.4f} | {param_group_name} | "
                 f"repeat={repeat_index} | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==="
             )
             
@@ -254,23 +321,23 @@ def run_experiment(config: ExperimentConfig) -> None:
             logging.info(f"[Model] Restored in {time.time() - restore_start:.3f}s")
             
             # Apply degradation if level > 0
-            if std_val > 0.0:
+            if degrad_level > 0.0:
                 degrade_start = time.time()
-                apply_degradation(model, param_names, std_val, method=degradation_method)
+                apply_degradation(model, param_names, degrad_level, method=degradation_method)
                 logging.info(f"[Degradation] Applied in {time.time() - degrade_start:.3f}s")
             
             # Check if all prompts already computed for this repetition
             missing_count = sum(
                 1 for p in prompts
                 if not is_prompt_computed(
-                    computed_prompts_set, param_group_name, std_val,
+                    computed_prompts_set, param_group_name, degrad_level,
                     repeat_index, degradation_method, p
                 )
             )
             
             if missing_count == 0:
                 logging.info(
-                    f"✅ All prompts already computed for level={std_val:.2f}, "
+                    f"✅ All prompts already computed for level={degrad_level:.2f}, "
                     f"repeat={repeat_index}. Skipping."
                 )
                 continue
@@ -311,7 +378,7 @@ def run_experiment(config: ExperimentConfig) -> None:
                     
                     # Skip if already computed
                     if is_prompt_computed(
-                        computed_prompts_set, param_group_name, std_val,
+                        computed_prompts_set, param_group_name, degrad_level,
                         repeat_index, degradation_method, prompt_text
                     ):
                         logging.info(
@@ -325,12 +392,12 @@ def run_experiment(config: ExperimentConfig) -> None:
                         "timestamp": datetime.now().isoformat(),
                         "model_name": model_name,
                         "config_name": config.config_name,
-                        "prompt_group": config.config_name.split("_")[0],  # Extract group from config name
+                        "prompt_group": config.config_name.split("_")[0],
                         "prompt_id": prompt_idx + 1,
                         "prompt_text": prompt_text,
                         "output": output.strip(),
-                        "std_dev": std_val,
-                        "level_value": std_val,
+                        "std_dev": degrad_level,
+                        "level_value": degrad_level,
                         "level_index": level_idx,
                         "repeat_index": repeat_index,
                         "param_group_name": param_group_name,
@@ -358,7 +425,7 @@ def run_experiment(config: ExperimentConfig) -> None:
                     results.append(result_entry)
                     
                     # Add to computed set
-                    key = (param_group_name, round(std_val, 2), repeat_index, degradation_method, prompt_text.strip())
+                    key = (param_group_name, round(degrad_level, 2), repeat_index, degradation_method, prompt_text.strip())
                     computed_prompts_set.add(key)
                     
                     prompt_counter += 1
@@ -375,7 +442,7 @@ def run_experiment(config: ExperimentConfig) -> None:
                     # Log output
                     logging.info(
                         f"\nPrompt {prompt_idx + 1} (rep {repeat_index}) "
-                        f"[{degradation_method}, {param_group_name}, level={std_val:.2f}]:\n"
+                        f"[{degradation_method}, {param_group_name}, level={degrad_level:.2f}]:\n"
                         f"{output.strip()[:200]}..." + ("-" * 60)
                     )
                     logging.info(f"⏱️  Time: {time.time() - prompt_start:.2f}s | Tokens: {token_count}")
@@ -389,23 +456,69 @@ def run_experiment(config: ExperimentConfig) -> None:
             # Save after each repetition
             save_results(output_path, results, indent=None)
             logging.info(
-                f"[Repetition complete] level={std_val:.2f}, repeat={repeat_index} "
+                f"[Repetition complete] level={degrad_level:.2f}, repeat={repeat_index} "
                 f"({time.time() - repeat_start_time:.2f}s)"
             )
         
         # Log level statistics
         level_duration = time.time() - level_start_time
-        logging.info(f"\n[Level complete] level={std_val:.2f} ({level_duration:.2f}s)")
+        logging.info(f"\n[Level complete] level={degrad_level:.2f} ({level_duration:.2f}s)")
     
+    total_duration = time.time() - experiment_start_time
+    return results, total_duration
+
+
+def finalize_experiment(
+    output_path: str,
+    results: List[Dict],
+    total_duration: float
+) -> None:
+    """
+    Finalization phase: Save final results and log statistics.
+    
+    This function handles experiment finalization:
+    - Final save with pretty formatting
+    - Log final statistics
+    
+    Args:
+        output_path: Path to JSON output file
+        results: List of result dictionaries
+        total_duration: Total experiment duration in seconds
+    """
     # Final save with pretty formatting
     save_results(output_path, results, indent=2)
     
     # Final statistics
-    total_duration = time.time() - experiment_start_time
     logging.info("\n" + "=" * 60)
     logging.info(f"✅ Experiment complete!")
     logging.info(f"Total results: {len(results)}")
     logging.info(f"Total duration: {total_duration:.2f}s")
     logging.info(f"Results saved: {output_path}")
     logging.info("=" * 60)
+
+
+def run_experiment(config: ExperimentConfig) -> None:
+    """
+    Run complete degradation experiment.
+    
+    This is the main pipeline orchestrator that coordinates:
+    - Setup: Model loading, degradation levels, output paths
+    - Loop: Restore → Degrade → Generate → Save
+    - Finalization: Final save and statistics
+    
+    Args:
+        config: Experiment configuration (dataclass)
+    
+    Note:
+        This function is designed to be resumable. If interrupted, it will
+        automatically continue from where it left off on the next run.
+    """
+    # Phase 1: Setup
+    state = setup_experiment(config)
+    
+    # Phase 2: Main experiment loop
+    results, total_duration = run_experiment_loop(state, config)
+    
+    # Phase 3: Finalization
+    finalize_experiment(state.output_path, results, total_duration)
 

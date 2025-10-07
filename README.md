@@ -75,15 +75,14 @@ huggingface-cli login
 
 ## Proposed layout (target structure after migration)
 - `src/`: all Python code (modules + CLI entry point)
-  - **Core modules (6 files):**
+  - **Core modules (5 files):**
     - `model_loader.py` - Loads model/tokenizer from HuggingFace and implements fast in-memory restoration of degraded parameters.
-    - `target_params.py` - Defines parameter groups (attention, MLP, embeddings) to target for degradation, hardcoded for Gemma-3-4b.
-    - `degradation.py` - Implements degradation methods (mult_gauss, ablation, uni_quant) that perturb model weights.
+    - `degradation.py` - Defines parameter groups (attention, MLP, embeddings) and implements degradation methods (mult_gauss, ablation, uni_quant), hardcoded for Gemma-3-4b.
     - `generation.py` - Handles text generation with optional image support and perplexity calculation.
     - `pipeline.py` - Orchestrates the complete experiment flow and manages JSON persistence with resume capability.
     - `utils.py` - Provides logging setup, seed management, VRAM monitoring, and image utilities.
   - **Entry point:**
-    - `run_experiment.py` - CLI script to execute experiments by config name.
+    - `main.py` - CLI script to execute experiments by config name.
 - `configs/`: Python configurations
   - `experiment_configs.py`: dataclass-based experiment configurations
   - `prompts.py`: prompt lists organized by task and model variant
@@ -102,7 +101,7 @@ python -m src.run_experiment --config iq_it
 python -m src.run_experiment --config cookie_theft_it
 
 # Or directly:
-python src/run_experiment.py --config dreams_it
+python src/main.py --config dreams_it
 ```
 
 ## Available experiments
@@ -456,12 +455,12 @@ tail -f logs/uni_quant_gemma-3-4b-it_20251006_143022.log
 **Note:** Previous methods `uni_quant_lineal` and `lognorm` from the original code are not included in this version.
 
 ## Parameter groups
-Three parameter groups are defined in `src/target_params.py`:
+Three parameter groups are defined in `src/degradation.py`:
 - **attn_only**: Attention value projection parameters (34 layers)
 - **mlp_only**: MLP feed-forward parameters - gate, up, and down projections (102 parameters across 34 layers)
 - **embed_only**: Embedding layer parameters (1 parameter)
 
-**Important:** The current implementation is **hardcoded for Gemma-3-4b** (34 layers). If using a different model architecture, `target_params.py` must be manually adapted to match the new model's layer count and naming conventions.
+**Important:** The current implementation is **hardcoded for Gemma-3-4b** (34 layers). If using a different model architecture, the parameter group definitions in `degradation.py` must be manually adapted to match the new model's layer count and naming conventions.
 
 ## Quantization (4-bit)
 The pipeline supports 4-bit quantization to reduce VRAM usage:
@@ -487,11 +486,11 @@ The pipeline automatically resumes interrupted experiments without re-executing 
 **Example:**
 ```bash
 # Start experiment
-python src/run_experiment.py --config dreams_it
+python src/main.py --config dreams_it
 # ... gets interrupted after processing 50% of prompts ...
 
 # Resume (same command)
-python src/run_experiment.py --config dreams_it
+python src/main.py --config dreams_it
 # ✅ Automatically detects completed work and continues from where it left off
 ```
 
@@ -581,7 +580,7 @@ If you have results from the original `experimento.py`, they remain fully compat
 ## Limitations and Future Work
 
 ### Current Limitations
-- **Model-specific:** The parameter groups (`target_params.py`) are hardcoded for Gemma-3-4b (34 layers). Using other models requires manual adaptation.
+- **Model-specific:** The parameter groups in `degradation.py` are hardcoded for Gemma-3-4b (34 layers). Using other models requires manual adaptation.
 - **Notebooks not migrated:** The original analysis notebooks (in `Archivos/`) have not been migrated to work with the new code structure. They remain compatible with the original JSON outputs.
 - **Single model support:** Only tested with Gemma 3 4B. Larger or smaller models may require adjustments to VRAM management and batch sizing.
 - **Local execution only:** Designed for local GPU execution. Cloud/Colab support was intentionally removed.
