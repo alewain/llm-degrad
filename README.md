@@ -94,18 +94,28 @@ huggingface-cli login
 - `docs/`: documentation and thesis link
 
 ## Quickstart
-```bash
-# Run one of the three main experiments:
-python -m src.run_experiment --config dreams_it
-python -m src.run_experiment --config iq_it
-python -m src.run_experiment --config cookie_theft_it
 
-# Or directly:
-python src/main.py --config dreams_it
+### Basic Usage
+```bash
+# Run a single variant on a task:
+python -m src.main --task dreams_it --variants gauss_attn
+
+# Run multiple variants by name:
+python -m src.main --task iq_it --variants gauss_attn,gauss_mlp,quant_attn
+
+# Run variants by index (1-5):
+python -m src.main --task cookie_theft_it --variant-indexes 1-5
+python -m src.main --task dreams_it --variant-indexes 1-3
 ```
 
-## Available experiments
-This repository includes three main experiments, all using the **instruction-tuned (IT)** variant of Gemma-3-4b:
+### Getting Help
+```bash
+python -m src.main --help
+```
+
+## Available Tasks
+
+This repository includes three main experiment **tasks**, all using the **instruction-tuned (IT)** variant of Gemma-3-4b:
 
 1. **`dreams_it`**: Dream narration task (~38 prompts)
    - Prompts asking the model to generate detailed dream narratives
@@ -120,6 +130,30 @@ This repository includes three main experiments, all using the **instruction-tun
    - Tests multimodal capabilities and structured visual description
 
 **Note:** Pretrained (PT) variants are not included in this version.
+
+## Available Variants
+
+Each **variant** defines a degradation method, target parameter group, and range. The system includes 5 official variants (indexed 1-5):
+
+| Index | Name | Method | Param Group | Range (min → max) | Steps |
+|-------|------|--------|-------------|-------------------|-------|
+| 1 | `gauss_attn` | Gaussian noise | Attention | 0.0 → 1.4 | 15 |
+| 2 | `gauss_mlp` | Gaussian noise | MLP | 0.0 → 0.5 | 11 |
+| 3 | `gauss_embed` | Gaussian noise | Embeddings | 0.0 → 1.0 | 21 |
+| 4 | `ablation_attn` | Ablation | Attention | 0.0 → 0.8 | 17 |
+| 5 | `quant_attn` | Quantization | Attention | 4 → 1024 | 9 |
+
+### Degradation Methods
+- **`mult_gauss`**: Multiplicative Gaussian noise (parameterized by standard deviation)
+- **`ablation`**: Set parameters to zero (parameterized by ablation fraction)
+- **`uni_quant`**: Uniform quantization (parameterized by number of quantization levels)
+
+### Parameter Groups
+- **`attn_only`**: Attention mechanism parameters (Q, K, V projections)
+- **`mlp_only`**: MLP/feed-forward network parameters
+- **`embed_only`**: Token embedding parameters
+
+**Note:** Parameter groups are hardcoded for Gemma-3-4b (34 layers). Using a different model requires manual adaptation.
 
 ## Execution flow
 
@@ -402,7 +436,7 @@ Each experiment generates a JSON file with one record per generated output.
 }
 ```
 
-**Compatibility note:** The output schema maintains all fields from the original `experimento.py` and adds new ones incrementally. Existing analysis notebooks continue working with the original fields.
+**Compatibility note:** The output schema maintains backward compatibility with previous versions. Existing analysis notebooks continue working with the original fields.
 
 For the complete JSON schema with all fields and their descriptions, see [`docs/output_schema.md`](docs/output_schema.md).
 
@@ -570,7 +604,7 @@ __pycache__/
 
 ## Migration from original code
 
-If you have results from the original `experimento.py`, they remain fully compatible. The JSON schema is backward-compatible:
+If you have results from previous versions, they remain fully compatible. The JSON schema is backward-compatible:
 - All original fields are preserved (`timestamp`, `model_name`, `prompt_group`, `prompt_id`, `prompt_text`, `output`, `std_dev`, `repeat_index`, `temperature`, `do_sample`, `param_group_name`, `seed`, `duration`, `tokens`, `degradation_method`, etc.)
 - New fields are added without breaking existing analyses
 - Original notebooks in `Archivos/` can still read old JSONs without modification

@@ -2,7 +2,7 @@
 
 ## Diagnóstico (SOURCE_DIR=Archivos)
 - Token HF hardcodeado y referencias a Colab/rutas (`/content`, `MyDrive`).
-- Un único script de generación (`experimento.py`) con múltiples responsabilidades.
+- Un único script monolítico de generación con múltiples responsabilidades.
 - Notebooks de análisis duplicados y pesados; no forman parte del pipeline de ejecución.
 - PDF/Excel y artefactos pesados mezclados en la raíz.
 
@@ -10,8 +10,7 @@
 - `src/`: todo el código Python (módulos + entry point)
   - `src/model_loader.py`: carga del modelo/tokenizer y restauración usando estrategia `subset_in_memory` (guarda en memoria solo el subset de parámetros a degradar).
   - `src/degradation.py`: definición de grupos de parámetros objetivo (attn, mlp, embed) **específica para Gemma-3-4b** (34 capas hardcodeadas), más los métodos de degradación (mult_gauss, ablation, uni_quant). Si se usa otro modelo, debe adaptarse manualmente.
-  - `src/degradation.py`: métodos de degradación (mult_gauss, ablation, uni_quant) y utilidades asociadas. 
-    - **Métodos eliminados:** `uni_quant_lineal` y `lognorm` (configs cfg10-cfg15) no se incluirán en la migración - no hubo experimentos finales publicados con estos métodos.
+    - **Métodos eliminados:** `uni_quant_lineal` y `lognorm` no se incluyen en esta versión - no hubo experimentos finales publicados con estos métodos.
   - `src/generation.py`: funciones de generación/IT wrapper, `generate_text` unificada con flags opcionales para imagen, y cálculo de perplejidad (opcional, desactivado por default).
   - `src/pipeline.py`: función principal `run_experiment` que coordina todo el flujo (restaurar/perturbar/generar), además de funciones de persistencia (guardado/retomado de JSON, resistente a interrupciones).
   - `src/utils.py`: utilidades comunes organizadas en tres secciones: (1) logging estándar y seeds para reproducibilidad, (2) monitoreo VRAM y ajuste dinámico de batch, (3) carga de imagen y preparación de prompts multimodales.
@@ -74,8 +73,8 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
 - Reemplazar `print()` por `logging.info()`, `logging.warning()`, `logging.error()` según corresponda.
 - Reemplazar bloques de seed duplicados por llamadas a `set_all_seeds()`.
 - Extraer listas de prompts a `configs/prompts.py`:
-  - Migrar las listas desde `experimento.py` (líneas 5-197) manteniendo la estructura Python
-  - **Experimentos a migrar (solo IT):**
+  - Migrar las listas de prompts manteniendo la estructura Python
+  - **Experimentos incluidos (solo IT):**
     - `dream_prompts_it_nuevo` → `dream_prompts_it` (38 prompts de narración de sueños)
     - `IQ_prompts_IT` → `iq_prompts_it` (math + language + logic + factual + creativity, ~65 prompts)
     - `cookies_it_mas` → `cookie_theft_prompts_it` (20 prompts para descripción de imagen)
@@ -90,9 +89,7 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
 
 3) Fase 3 – Degradación y generación
 - Mover degradaciones a `degradation.py` y limitar métodos a: `mult_gauss`, `ablation`, `uni_quant`.
-- **Eliminar completamente:** 
-  - Métodos `uni_quant_lineal` y `lognorm` (no se portean)
-  - Configs cfg10-cfg15 (no se migran a dataclasses)
+- **Métodos no incluidos:** `uni_quant_lineal` y `lognorm` (no se portean)
 - Implementar `generation.py` con funciones de generación y perplejidad:
   - `generate_text()`: generación principal con soporte opcional para imágenes
   - `wrap_chat_it()`: wrapper para formato instruction-tuned

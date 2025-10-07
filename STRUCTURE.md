@@ -202,7 +202,7 @@ print(prompt)
 
 Implement degradation methods:
 - `src/degradation.py` - mult_gauss, ablation, uni_quant methods
-- Extract quantization and perturbation logic from original experimento.py
+- Extract quantization and perturbation logic
 
 ---
 

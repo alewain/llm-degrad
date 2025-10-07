@@ -2,14 +2,16 @@
 Model loading and restoration for LLM degradation experiments.
 
 This module implements the `subset_in_memory` restoration strategy:
-- Loads model from HuggingFace (or local cache)
+- Loads model and tokenizer from HuggingFace (with automatic caching)
+- Uses Unsloth for optimized model loading
 - Saves a baseline copy of degradable parameters in CPU memory
 - Provides fast restoration from this in-memory baseline before each repetition
 
 Key functions:
-- load_model_and_tokenizer(): Main entry point for model loading
+- load_model_and_tokenizer(): Main entry point (loads model, tokenizer, creates baseline)
 - create_baseline_subset(): Save degradable params to CPU memory
 - restore_from_baseline(): Fast restoration from in-memory copy
+- load_image_processor(): Load processor for multimodal experiments
 """
 
 import logging
@@ -61,6 +63,7 @@ def load_model_and_tokenizer(
     Note:
         Both model and tokenizer use HuggingFace's automatic caching 
         (~/.cache/huggingface/hub/). No manual cache management needed.
+        Requires HF_TOKEN environment variable for private/gated models.
     
     Example:
         >>> model, tokenizer, baseline = load_model_and_tokenizer(
@@ -73,71 +76,11 @@ def load_model_and_tokenizer(
     
     # Load tokenizer
     logging.info(f"Loading tokenizer for {model_name}...")
-    tokenizer = load_tokenizer(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     
     # Load model
     logging.info(f"Loading model {model_name}...")
-    model = load_model(
-        model_name=model_name,
-        device=device,
-        dtype=dtype,
-        load_in_4bit=load_in_4bit,
-        max_seq_length=max_seq_length,
-    )
     
-    # Create baseline subset
-    logging.info("Creating baseline subset of degradable parameters...")
-    baseline_subset = create_baseline_subset(model, param_names)
-    
-    elapsed = time.time() - start_time
-    logging.info(f"✅ Model loading complete in {elapsed:.2f}s")
-    
-    return model, tokenizer, baseline_subset
-
-
-def load_tokenizer(model_name: str) -> Any:
-    """
-    Load tokenizer using HuggingFace's automatic cache.
-    
-    Args:
-        model_name: HuggingFace model identifier
-    
-    Returns:
-        HuggingFace tokenizer instance
-    
-    Note:
-        Uses HF's automatic cache (~/.cache/huggingface/hub/).
-        First call downloads, subsequent calls use cached version.
-    """
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    return tokenizer
-
-
-def load_model(
-    model_name: str,
-    device: str = "cuda:0",
-    dtype: str = "float32",
-    load_in_4bit: bool = False,
-    max_seq_length: int = 512,
-) -> Any:
-    """
-    Load model using Unsloth for optimized loading.
-    
-    Args:
-        model_name: HuggingFace model identifier
-        device: Target device
-        dtype: Model dtype (float16/float32/bfloat16)
-        load_in_4bit: Whether to use 4-bit quantization
-        max_seq_length: Maximum sequence length
-    
-    Returns:
-        Loaded PyTorch model
-    
-    Note:
-        Uses Unsloth's FastLanguageModel for optimized loading.
-        Model weights are cached automatically by HuggingFace.
-        Requires HF_TOKEN environment variable for private/gated models.
-    """
     if not UNSLOTH_AVAILABLE:
         raise RuntimeError(
             "Unsloth is required for model loading. "
@@ -189,7 +132,14 @@ def load_model(
     
     logging.info(f"Model loaded on: {device}")
     
-    return model
+    # Create baseline subset
+    logging.info("Creating baseline subset of degradable parameters...")
+    baseline_subset = create_baseline_subset(model, param_names)
+    
+    elapsed = time.time() - start_time
+    logging.info(f"✅ Model loading complete in {elapsed:.2f}s")
+    
+    return model, tokenizer, baseline_subset
 
 
 def create_baseline_subset(

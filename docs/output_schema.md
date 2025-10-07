@@ -142,7 +142,7 @@ Each experiment generates a JSON file containing an array of records. Each recor
 ## Field Evolution
 
 The schema is designed to be backward-compatible:
-- **Original fields** from `experimento.py` are maintained with their original names and types
+- **Original fields** are maintained with their original names and types for backward compatibility
 - **New fields** are added incrementally without breaking existing analysis code
 - **Deprecated fields** (like `usar_4bit`) are kept for compatibility but superseded by newer equivalents
 

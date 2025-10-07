@@ -3,8 +3,8 @@ Utility functions for LLM degradation experiments.
 
 This module provides three main categories of utilities:
 1. General utilities: Logging setup and seed management for reproducibility
-2. VRAM monitoring: Memory tracking and dynamic batch size adjustment (TO BE IMPLEMENTED in Phase 4)
-3. Image support: Image loading and multimodal prompt preparation (TO BE IMPLEMENTED in Phase 4)
+2. VRAM monitoring: Memory tracking and dynamic batch size adjustment
+3. Image support: Image loading and multimodal prompt preparation
 """
 
 import logging

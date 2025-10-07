@@ -6,7 +6,7 @@
 # 2. Then install remaining dependencies:
 #    pip install -r requirements.txt
 
-# Core dependencies (extracted from experimento.py)
+# Core dependencies
 numpy>=1.24.0
 transformers>=4.30.0
 sentencepiece>=0.1.99

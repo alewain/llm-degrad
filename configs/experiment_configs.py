@@ -1,16 +1,16 @@
 """
 Experiment configurations using Python dataclasses.
 
-This module defines experiment configurations for the three main experiments:
-- dreams_it: Dream narration task
-- iq_it: Multi-task cognitive assessment
-- cookie_theft_it: Cookie Theft image description
+This module defines a registry-based configuration system for LLM degradation experiments.
+The system separates:
+- TASKS: Define the experiment theme (prompts, image support, output naming)
+- VARIANTS: Define degradation method + parameter group + range (min/max/steps)
 
-All experiments use the instruction-tuned (IT) variant of Gemma-3-4b.
+Configuration is selected at runtime via CLI arguments (--task, --variants, --variant-indexes).
 """
 
-from dataclasses import dataclass
-from typing import List, Literal
+from dataclasses import dataclass, replace
+from typing import List, Literal, Dict
 from configs.prompts import dream_prompts_it, iq_prompts_it, cookie_theft_prompts_it
 
 
@@ -20,7 +20,8 @@ class ExperimentConfig:
     Base configuration for all LLM degradation experiments.
     
     This dataclass provides type-safe configuration with automatic validation.
-    Specific experiments inherit from this base and override relevant fields.
+    Configurations are built by composing a TASK (experiment theme) with a VARIANT
+    (degradation method + parameter group + range).
     """
     
     # Experiment identification
@@ -65,84 +66,157 @@ class ExperimentConfig:
 
 
 # ============================================================================
-# Three main experiment configurations (all IT)
+# TASKS: Define experiment themes (prompts, image support, naming)
 # ============================================================================
 
-dreams_it = ExperimentConfig(
-    config_name="dreams_it",
-    prompts=dream_prompts_it,
-    name_suffix="2025_05_20_dreams",
-    param_group_name="attn_only",
-    degradation_method="uni_quant",
-    min_deg=2,
-    max_deg=256,
-    deg_steps=5,
-    n_rep=10,
-    max_new_tokens=350,
-    image_enabled=False,
-)
-
-iq_it = ExperimentConfig(
-    config_name="iq_it",
-    prompts=iq_prompts_it,
-    name_suffix="2025_05_04_IQ",
-    param_group_name="attn_only",
-    degradation_method="uni_quant",
-    min_deg=2,
-    max_deg=256,
-    deg_steps=5,
-    n_rep=10,
-    max_new_tokens=350,
-    image_enabled=False,
-)
-
-cookie_theft_it = ExperimentConfig(
-    config_name="cookie_theft_it",
-    prompts=cookie_theft_prompts_it,
-    name_suffix="2025_06_24_cookies",
-    param_group_name="attn_only",
-    degradation_method="uni_quant",
-    min_deg=2,
-    max_deg=256,
-    deg_steps=5,
-    image_enabled=True,
-    max_new_tokens=350,
-    n_rep=10,
-)
+TASKS: Dict[str, ExperimentConfig] = {
+    "dreams_it": ExperimentConfig(
+        prompts=dream_prompts_it,
+    ),
+    "iq_it": ExperimentConfig(
+        prompts=iq_prompts_it,
+    ),
+    "cookie_theft_it": ExperimentConfig(
+        prompts=cookie_theft_prompts_it,
+        image_enabled=True,
+    ),
+}
 
 
 # ============================================================================
-# Helper function to get config by name
+# VARIANTS: Define degradation method + parameter group + range
+# ============================================================================
+# Each variant specifies:
+# - degradation_method: mult_gauss, ablation, uni_quant
+# - param_group_name: attn_only, mlp_only, embed_only
+# - min_deg, max_deg, deg_steps: range of degradation levels
+
+VARIANTS: Dict[str, Dict] = {
+    # 1. gauss_attn: Gaussian noise on attention parameters
+    "gauss_attn": {
+        "degradation_method": "mult_gauss",
+        "param_group_name": "attn_only",
+        "min_deg": 0.0,
+        "max_deg": 1.4,
+        "deg_steps": 15,
+    },
+    # 2. gauss_mlp: Gaussian noise on MLP parameters
+    "gauss_mlp": {
+        "degradation_method": "mult_gauss",
+        "param_group_name": "mlp_only",
+        "min_deg": 0.0,
+        "max_deg": 0.5,
+        "deg_steps": 11,
+    },
+    # 3. gauss_embed: Gaussian noise on embedding parameters
+    "gauss_embed": {
+        "degradation_method": "mult_gauss",
+        "param_group_name": "embed_only",
+        "min_deg": 0.0,
+        "max_deg": 1.0,
+        "deg_steps": 21,
+    },
+    # 4. ablation_attn: Ablation on attention parameters
+    "ablation_attn": {
+        "degradation_method": "ablation",
+        "param_group_name": "attn_only",
+        "min_deg": 0.0,
+        "max_deg": 0.8,
+        "deg_steps": 17,
+    },
+    # 5. quant_attn: Uniform quantization on attention parameters
+    "quant_attn": {
+        "degradation_method": "uni_quant",
+        "param_group_name": "attn_only",
+        "min_deg": 4,
+        "max_deg": 1024,
+        "deg_steps": 9,
+    },
+}
+
+# Ordered list for --variant-indexes (1-5)
+VARIANTS_ORDERED = [
+    "gauss_attn",
+    "gauss_mlp",
+    "gauss_embed",
+    "ablation_attn",
+    "quant_attn",
+]
+
+
+# ============================================================================
+# Configuration builder
 # ============================================================================
 
-def get_config(name: str) -> ExperimentConfig:
+def build_config(task_key: str, variant_key: str, **overrides) -> ExperimentConfig:
     """
-    Retrieve an experiment configuration by name.
+    Build an experiment configuration by composing a TASK with a VARIANT.
     
     Args:
-        name: Name of the configuration ("dreams_it", "iq_it", "cookie_theft_it")
+        task_key: Task name ("dreams_it", "iq_it", "cookie_theft_it")
+        variant_key: Variant name ("gauss_attn", "gauss_mlp", "gauss_embed", 
+                                   "ablation_attn", "quant_attn")
+        **overrides: Optional field overrides (e.g., n_rep=5, temperature=0.8)
     
     Returns:
-        The corresponding ExperimentConfig instance
+        Complete ExperimentConfig instance
     
     Raises:
-        ValueError: If the config name is not recognized
+        ValueError: If task_key or variant_key is not recognized
     
     Example:
-        >>> config = get_config("dreams_it")
-        >>> config.n_rep = 5  # Override specific fields if needed
+        >>> cfg = build_config("dreams_it", "gauss_attn")
+        >>> cfg_custom = build_config("iq_it", "quant_attn", n_rep=5)
     """
-    configs = {
-        "dreams_it": dreams_it,
-        "iq_it": iq_it,
-        "cookie_theft_it": cookie_theft_it,
-    }
-    
-    if name not in configs:
+    if task_key not in TASKS:
         raise ValueError(
-            f"Unknown config: {name}. "
-            f"Available configs: {list(configs.keys())}"
+            f"Unknown task: {task_key}. "
+            f"Available tasks: {list(TASKS.keys())}"
         )
     
-    return configs[name]
+    if variant_key not in VARIANTS:
+        raise ValueError(
+            f"Unknown variant: {variant_key}. "
+            f"Available variants: {list(VARIANTS.keys())}"
+        )
+    
+    base = TASKS[task_key]
+    variant = VARIANTS[variant_key]
+    
+    # Apply variant parameters
+    cfg = replace(base, **variant)
+    
+    # Auto-generate composite config name and name_suffix
+    cfg = replace(
+        cfg,
+        config_name=f"{task_key}__{variant_key}",
+        name_suffix=task_key  # Use task_key as name_suffix for output files
+    )
+    
+    # Apply any additional overrides
+    if overrides:
+        cfg = replace(cfg, **overrides)
+    
+    return cfg
+
+
+def get_variant_by_index(index: int) -> str:
+    """
+    Get variant key by index (1-based).
+    
+    Args:
+        index: Variant index (1-5)
+    
+    Returns:
+        Variant key string
+    
+    Raises:
+        ValueError: If index is out of range
+    """
+    if index < 1 or index > len(VARIANTS_ORDERED):
+        raise ValueError(
+            f"Variant index {index} out of range. "
+            f"Valid range: 1-{len(VARIANTS_ORDERED)}"
+        )
+    return VARIANTS_ORDERED[index - 1]
 

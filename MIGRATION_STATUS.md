@@ -1,6 +1,6 @@
 # Migration Status
 
-This document tracks the progress of migrating from `experimento.py` to the modularized codebase.
+This document tracks the progress of the codebase modularization.
 
 ## ✅ Phase 1: Skeleton and Configuration (COMPLETED)
 
