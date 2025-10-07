@@ -1,0 +1,20 @@
+.env
+results/
+logs/
+*.pt
+*.safetensors
+__pycache__/
+.ipynb_checkpoints/
+
+# Entorno virtual y cachés
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Snapshots de modelos
+snapshots/
+
+# Configuración local / IDE
+.vscode/
+.DS_Store
