@@ -25,7 +25,7 @@ class ExperimentConfig:
     """
     
     # Experiment identification
-    config_name: str
+    config_name: str = ""
     prompts: List[str]  # List of prompts to use in this experiment
     name_suffix: str = ""  # Suffix for output filename
     

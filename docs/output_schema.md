@@ -11,7 +11,6 @@ Each experiment generates a JSON file containing an array of records. Each recor
 | Field | Type | Description |
 |-------|------|-------------|
 | `timestamp` | string (ISO 8601) | Timestamp when the output was generated |
-| `experiment_id` | string | Unique identifier for the experiment run (format: `{degradation_method}\|{model_name}\|{name_suffix}`) |
 | `config_name` | string | Name of the configuration profile used |
 
 ### Model Information
@@ -69,10 +68,10 @@ Each experiment generates a JSON file containing an array of records. Each recor
 | `gen_params.temperature` | float | Sampling temperature |
 | `gen_params.do_sample` | boolean | Whether sampling is enabled |
 | `gen_params.max_new_tokens` | integer | Maximum tokens to generate |
-| `gen_params.top_k` | integer | Top-k sampling parameter (optional) |
-| `gen_params.top_p` | float | Nucleus sampling parameter (optional) |
 | `seed` | integer | Random seed used for this generation |
 | `batch_size_effective` | integer | Actual batch size used during generation |
+
+**Note:** `top_k` and `top_p` are not currently implemented in the generation parameters, but can be added if needed.
 
 ### Image-Related Fields (optional)
 
@@ -101,8 +100,7 @@ Each experiment generates a JSON file containing an array of records. Each recor
 ```json
 {
   "timestamp": "2025-10-06T12:34:56.789Z",
-  "experiment_id": "uni_quant|google/gemma-3-4b-it|2025_05_20_dreams",
-  "config_name": "dreams_it",
+  "config_name": "dreams_it__quant_attn",
   "model_name": "google/gemma-3-4b-it",
   "model_variant": "it",
   "device": "cuda:0",
@@ -126,9 +124,7 @@ Each experiment generates a JSON file containing an array of records. Each recor
   "gen_params": {
     "temperature": 1.0,
     "do_sample": true,
-    "max_new_tokens": 350,
-    "top_k": 64,
-    "top_p": 0.95
+    "max_new_tokens": 350
   },
   "seed": 42001,
   "batch_size_effective": 9,

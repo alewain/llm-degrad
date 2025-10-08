@@ -388,6 +388,7 @@ def run_experiment_loop(
                     
                     # Create result entry
                     token_count = len(tokenizer.encode(output))
+                    tokens_in = len(tokenizer.encode(prompt_text))
                     result_entry = {
                         "timestamp": datetime.now().isoformat(),
                         "model_name": model_name,
@@ -403,12 +404,15 @@ def run_experiment_loop(
                         "param_group_name": param_group_name,
                         "degradation_method": degradation_method,
                         "seed": local_seed,
-                        "temperature": config.temperature,
-                        "do_sample": config.do_sample,
-                        "max_new_tokens": config.max_new_tokens,
+                        "gen_params": {
+                            "temperature": config.temperature,
+                            "do_sample": config.do_sample,
+                            "max_new_tokens": config.max_new_tokens,
+                        },
                         "duration": time.time() - prompt_start,
                         "tokens": token_count,
                         "tokens_out": token_count,
+                        "tokens_in": tokens_in,
                         "model_variant": config.model_variant,
                         "device": config.device,
                         "dtype": config.dtype,
