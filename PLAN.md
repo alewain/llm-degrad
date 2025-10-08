@@ -133,6 +133,7 @@ Racional: modularidad mínima para claridad/reutilización; ejecución 100% loca
   - `force_run=False` (default): comportamiento actual, solo ejecuta prompts faltantes
   - `force_run=True`: re-ejecuta todo, ignorando resultados previos
   - Útil para debugging o cuando se quiere regenerar outputs con cambios menores en el modelo/configuración
+- **License & Citation:** Agregar sección de licencia y citación en el README principal
 
 ## Contrato de salida (actualizado)
 

@@ -4,7 +4,7 @@ Experimental code for the thesis **["Controlled Degradation in a Large Language 
 
 This repository provides a local, reproducible pipeline for applying controlled degradations to LLM weights and generating structured outputs for analysis.
 
-**Current version:** Configured for Gemma-3-4b-it. Easily adaptable to other models, prompts, or target parameters.
+**Current version:** Configured for Gemma-3-4b-it. Easily adaptable to other models, prompts, or target parameters. This repository includes content generation with perturbed models; analysis tools coming soon.
 
 ---
 
@@ -13,11 +13,11 @@ This repository provides a local, reproducible pipeline for applying controlled 
 ### Installation
 
 First, verify the [requirements](docs/guide.md#requirements). Use a virtual environment (optional, recommended).
-
-```bash
+  
+  ```bash
 # Ensure PyTorch with CUDA is installed in your environment
 # If you already have a correct torch+CUDA install, skip.
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # Install remaining dependencies
 pip install -r requirements.txt
@@ -34,6 +34,8 @@ cp env.example .env
 
 ### Tasks (Experiment Themes)
 
+_Defined in [`configs/prompts.py`](configs/prompts.py)_
+
 | Task | Description | Prompts |
 |------|-------------|---------|
 | `dreams_it` | Dream narration | ~38 |
@@ -42,17 +44,23 @@ cp env.example .env
 
 ### Degradation Methods
 
-- **`mult_gauss`**: Multiplicative Gaussian noise
-- **`ablation`**: Set parameters to zero
-- **`uni_quant`**: Uniform quantization
+_Defined in [`src/degradation.py`](src/degradation.py)_
+
+- **`mult_gauss`**: Multiplicative Gaussian noise (controlled by standard deviation)
+- **`ablation`**: Set parameters to zero (controlled by masking proportion, 0–1)
+- **`uni_quant`**: Uniform quantization (controlled by number of quantization levels)
 
 ### Parameter Groups (Target Parameters)
+
+_Defined in [`src/degradation.py`](src/degradation.py)_
 
 - **`attn_only`**: Attention mechanism (V projections only)
 - **`mlp_only`**: Feed-forward network
 - **`embed_only`**: Token embeddings
 
 ### Variants (Method + Target Combinations)
+
+_Defined in [`configs/experiment_configs.py`](configs/experiment_configs.py)_
 
 Each variant is a specific combination of degradation method and parameter group:
 
@@ -125,29 +133,7 @@ Example: `outputs_mult_gauss_gemma-3-4b-it_dreams_it.json`
 
 Each file contains an array of JSON objects, one per generation. See [output_schema.md](docs/output_schema.md) for complete field documentation.
 
----
 
-## Research Context
-
-This project investigates:
-- How cognitive capabilities deteriorate under controlled neural damage
-- Whether LLM degradation patterns mirror human neurological disorders
-- Which architectural components are critical for different tasks
-
-**Note:** This repository focuses on generation and perturbation. Analysis and metrics are documented in the thesis.
-
----
-
-## License & Citation
-
-[Add license information]
-
-If you use this code, please cite:
-```
-[Add citation information]
-```
-
----
 
 ## Documentation
 
