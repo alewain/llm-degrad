@@ -47,10 +47,12 @@ This repository provides a **local, reproducible pipeline** for:
 
 ### Requirements
 
-- Python 3.10 or higher (tested with 3.11)
-- CUDA 12.1 or higher
-- NVIDIA GPU with at least 24GB VRAM (tested on RTX 3090)
-- Approximately 15GB free disk space (model weights + cache + results)
+- **Python:** 3.10 or higher (tested with 3.11)
+- **CUDA:** 12.1 or higher
+- **GPU:** NVIDIA GPU with at least 24GB VRAM (tested on RTX 3090)
+- **Disk space:** Approximately 15GB free (model weights + cache + results)
+
+**Note:** This project requires a GPU with CUDA support. CPU-only execution is not supported.
 
 ### Installation Steps
 
@@ -182,7 +184,7 @@ A **variant** defines how to degrade the model:
 
 ### Parameter Groups
 
-- **`attn_only`**: Attention mechanism parameters (Q, K, V projections)
+- **`attn_only`**: Attention mechanism parameters (V projections only)
 - **`mlp_only`**: MLP/feed-forward network parameters
 - **`embed_only`**: Token embedding parameters
 
