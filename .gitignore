@@ -1,15 +1,16 @@
 .env
 
-# Exclude full experiment results (large files)
-results/*.json
-
-# But include small samples (for notebooks and documentation)
-!results/samples/
-!results/samples/*.json
-
-# Exclude logs (can be large and session-specific)
+# Exclude experiment results and logs (created at runtime)
+results/
 logs/
-*.log
+
+# Exclude images (copyright, must be obtained separately)
+images/
+
+# NOTE: If you want to include sample results in the future, use:
+# results/
+# !results/samples/
+# results/samples/*.json
 
 # Python artifacts
 __pycache__/

@@ -1,6 +1,6 @@
 # LLM Degradation Experiments
 
-Experimental code for the thesis **["Controlled Degradation in a Large Language Model (LLM)"](link-to-thesis)** by Alejandro Wainstock.
+Experimental code for the thesis **["Controlled Degradation in a Large Language Model (LLM)"](docs/thesis_spanish.pdf)** (Spanish) by Alejandro Wainstock.
 
 This repository provides a local, reproducible pipeline for applying controlled degradations to LLM weights and generating structured outputs for analysis.
 
@@ -50,29 +50,30 @@ _Defined in [`src/degradation.py`](src/degradation.py)_
 - **`ablation`**: Set parameters to zero (controlled by masking proportion, 0–1)
 - **`uni_quant`**: Uniform quantization (controlled by number of quantization levels)
 
-### Parameter Groups (Target Parameters)
+### Target Parameter Groups
 
 _Defined in [`src/degradation.py`](src/degradation.py)_
 
-- **`attn_only`**: Attention mechanism (V projections only)
-- **`mlp_only`**: Feed-forward network
-- **`embed_only`**: Token embeddings
+- **`attn_only`**: Attention V-projection matrices (`v_proj.weight`)
+- **`mlp_only`**: Feed-forward network matrices (gate, up, down)
+- **`embed_only`**: Token embedding matrix (`embed_tokens.weight`, lookup table)
+
+**Note:** Degradations are applied to the weight values of these matrices across all layers simultaneously.
 
 ### Variants (Method + Target Combinations)
 
 _Defined in [`configs/experiment_configs.py`](configs/experiment_configs.py)_
 
-Each variant is a specific combination of degradation method and parameter group:
+Each variant is a specific combination of degradation method and target parameter group. The following 5 variants were used in this thesis:
 
-| Index | Name | Method | Target | Range (min → max) | Steps |
-|-------|------|--------|--------|-------------------|-------|
-| 1 | `gauss_attn` | Gaussian noise | Attention (V) | 0.0 → 1.4 | 15 |
-| 2 | `gauss_mlp` | Gaussian noise | MLP | 0.0 → 0.5 | 11 |
-| 3 | `gauss_embed` | Gaussian noise | Embeddings | 0.0 → 1.0 | 21 |
-| 4 | `ablation_attn` | Ablation | Attention (V) | 0.0 → 0.8 | 17 |
-| 5 | `quant_attn` | Quantization | Attention (V) | 4 → 1024 | 9 |
+| Index | Name | Method | Target | Range | Steps |
+|-------|------|--------|--------|-------|-------|
+| 1 | `gauss_attn` | Gaussian | Attention (V) | 0.0 → 1.4 (σ) | 15 (linear) |
+| 2 | `gauss_mlp` | Gaussian | MLP | 0.0 → 0.5 (σ) | 11 (linear) |
+| 3 | `gauss_embed` | Gaussian | Embeddings | 0.0 → 1.0 (σ) | 21 (linear) |
+| 4 | `ablation_attn` | Ablation | Attention (V) | 0.0 → 0.8 (%) | 17 (linear) |
+| 5 | `quant_attn` | Quantization | Attention (V) | 1024 → 4 (levels) | 9 (geometric) |
 
-**Note:** Variants and their parameters are defined in `configs/experiment_configs.py`.
 
 ### Running Experiments
 
@@ -95,28 +96,28 @@ python -m src.main --help
 ## Project Structure
 
 ```
-├── src/                 # Core modules
-│   ├── main.py          # CLI entry point
-│   ├── pipeline.py      # Experiment orchestration
-│   ├── model_loader.py  # Model loading & restoration
-│   ├── degradation.py   # Degradation methods
-│   ├── generation.py    # Text generation
-│   └── utils.py         # Utilities (logging, VRAM, seeds)
+├── src/                        # Core modules
+│   ├── main.py                 # CLI entry point
+│   ├── pipeline.py             # Experiment orchestration
+│   ├── model_loader.py         # Model loading & restoration
+│   ├── degradation.py          # Degradation methods
+│   ├── generation.py           # Text generation
+│   └── utils.py                # Utilities (logging, VRAM, seeds)
 │
-├── configs/             # Configuration
-│   ├── experiment_configs.py  # TASKS × VARIANTS registry
-│   └── prompts.py       # Prompt lists
+├── configs/                    # Configuration
+│   ├── experiment_configs.py   # TASKS × VARIANTS registry
+│   └── prompts.py              # Prompt lists by task
 │
-├── results/             # JSON outputs
-│   └── samples/         # Small versioned samples
+├── results/                    # JSON outputs (created at runtime)
+├── logs/                       # Execution logs (created at runtime)
 │
-├── logs/                # Execution logs
+├── docs/                       # Documentation
+│   ├── guide.md                # Complete guide
+│   ├── output_schema.md        # JSON schema reference
+│   └── thesis_spanish.pdf      # Thesis document (Spanish)
 │
-├── docs/                # Documentation
-│   ├── guide.md         # Complete guide
-│   └── output_schema.md # JSON schema reference
-│
-└── requirements.txt     # Dependencies
+├── requirements.txt            # Dependencies
+└── env.example                 # Example .env file
 ```
 
 ---
@@ -133,10 +134,7 @@ Example: `outputs_mult_gauss_gemma-3-4b-it_dreams_it.json`
 
 Each file contains an array of JSON objects, one per generation. See [output_schema.md](docs/output_schema.md) for complete field documentation.
 
+---
 
-
-## Documentation
-
-- **[Complete Guide](docs/guide.md)** - Installation, usage, extending the system, examples
-- **[Output Schema](docs/output_schema.md)** - JSON structure reference
+For complete documentation, see the **[Guide](docs/guide.md)**.
 

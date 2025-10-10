@@ -57,8 +57,11 @@ class ExperimentConfig:
     max_new_tokens: int = 350
     
     # Image support (for multimodal experiments)
+    # NOTE: The image for the cookie_theft_it task must be obtained from the authors 
+    #       or publisher PRO-ED, Inc. Place as images/image_description.png 
+    #       (896×896 pixels, Gemma-3-4b-it compatible format)
     image_enabled: bool = False
-    image_filename: str = "DescribePictureOK.png"
+    image_filename: str = "images/image_description.png"
     
     # Perplexity evaluation (optional, disabled by default)
     compute_perplexity: bool = False
