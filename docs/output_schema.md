@@ -56,8 +56,6 @@ Each experiment generates a JSON file containing an array of records. Each recor
 | `tokens_out` | integer | Number of tokens in the generated output |
 | `duration` | float | Time taken to generate the output (seconds) |
 
-**Important:** Fields `output` and `duration` retain their original names for backward compatibility. Do not rename them.
-
 ### Generation Configuration
 
 | Field | Type | Description |
@@ -138,12 +136,8 @@ Each experiment generates a JSON file containing an array of records. Each recor
 ## Field Evolution
 
 The schema is designed to be backward-compatible:
-- **Original fields** are maintained with their original names and types for backward compatibility
-- **New fields** are added incrementally without breaking existing analysis code
-- **Deprecated fields** (like `usar_4bit`) are kept for compatibility but superseded by newer equivalents
+- Legacy fields are maintained for compatibility but superseded by newer equivalents (see Legacy Fields section).
+- New fields are added incrementally without breaking existing analysis code.
 
-This ensures that:
-- Old notebooks can still read new outputs (ignoring unknown fields)
-- New notebooks can read old outputs (using only the fields that exist)
-- Migration can happen gradually without breaking existing analysis pipelines
+This ensures old notebooks can read new outputs and vice versa.
 

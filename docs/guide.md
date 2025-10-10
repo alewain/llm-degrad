@@ -163,27 +163,10 @@ A **task** defines the experiment theme:
 | Task | Description | Prompts | Image |
 |------|-------------|---------|-------|
 | `dreams_it` | Dream narration | ~38 | No |
-| `iq_it` | Cognitive assessment | ~65 | No |
+| `iq_it` | Cognitive assessment (math, language, logic) | ~65 | No |
 | `cookie_theft_it` | Image description | ~20 | Yes |
 
 All tasks use the **instruction-tuned (IT)** variant of Gemma-3-4b.
-
-### VARIANTS
-
-A **variant** defines how to degrade the model:
-- Degradation method (Gaussian, ablation, quantization)
-- Target parameter group (attention, MLP, embeddings)
-- Range of degradation levels (min, max, steps)
-
-**Available variants (indexed 1-5):**
-
-| Index | Name | Method | Param Group | Range (min → max) | Steps |
-|-------|------|--------|-------------|-------------------|-------|
-| 1 | `gauss_attn` | Gaussian noise | Attention | 0.0 → 1.4 | 15 |
-| 2 | `gauss_mlp` | Gaussian noise | MLP | 0.0 → 0.5 | 11 |
-| 3 | `gauss_embed` | Gaussian noise | Embeddings | 0.0 → 1.0 | 21 |
-| 4 | `ablation_attn` | Ablation | Attention | 0.0 → 0.8 | 17 |
-| 5 | `quant_attn` | Quantization | Attention | 4 → 1024 | 9 |
 
 ### Degradation Methods
 
@@ -196,6 +179,25 @@ A **variant** defines how to degrade the model:
 - **`attn_only`**: Attention V-projection matrices (`v_proj.weight`)
 - **`mlp_only`**: Feed-forward network matrices (gate, up, down)
 - **`embed_only`**: Token embedding matrix (`embed_tokens.weight`, lookup table)
+
+**Note:** Degradations are applied to the weight values of these matrices across all layers simultaneously.
+
+### VARIANTS
+
+A **variant** defines how to degrade the model:
+- Degradation method (Gaussian, ablation, quantization)
+- Target parameter group (attention, MLP, embeddings)
+- Range of degradation levels (min, max, steps)
+
+Each variant is a specific combination of degradation method and target parameter group. The following 5 variants were used in this thesis:
+
+| Index | Name | Method | Target | Range | Steps |
+|-------|------|--------|--------|-------|-------|
+| 1 | `gauss_attn` | Gaussian | Attention (V) | 0.0 → 1.4 (σ) | 15 (linear) |
+| 2 | `gauss_mlp` | Gaussian | MLP | 0.0 → 0.5 (σ) | 11 (linear) |
+| 3 | `gauss_embed` | Gaussian | Embeddings | 0.0 → 1.0 (σ) | 21 (linear) |
+| 4 | `ablation_attn` | Ablation | Attention (V) | 0.0 → 0.8 (%) | 17 (linear) |
+| 5 | `quant_attn` | Quantization | Attention (V) | 1024 → 4 (levels) | 9 (geometric) |
 
 **Note:** Degradations are applied to the weight values of these matrices across all layers simultaneously.
 
