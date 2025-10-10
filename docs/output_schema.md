@@ -30,14 +30,13 @@ Each experiment generates a JSON file containing an array of records. Each recor
 |-------|------|-------------|
 | `degradation_method` | string | Method used: "mult_gauss", "ablation", or "uni_quant" |
 | `param_group_name` | string | Which component was degraded: "attn_only", "mlp_only", or "embed_only" |
-| `std_dev` | float | Degradation parameter value (name kept for backward compatibility) |
-| `level_value` | float | Alias for `std_dev` (semantic clarity for non-Gaussian methods) |
+| `level_value` | float | Degradation level control parameter (see note below) |
 | `level_index` | integer | Index of this degradation level in the experiment sequence (0-based) |
 | `repeat_index` | integer | Repetition number for this degradation level (0-based) |
 
-**Note on degradation parameter:** 
+**Note on control parameter (`level_value`):** 
 - For `mult_gauss`: standard deviation of Gaussian noise
-- For `ablation`: proportion of weights set to zero (0.0 to 1.0)
+- For `ablation`: masking proportion (0.0 to 1.0)
 - For `uni_quant`: number of quantization levels
 
 ### Prompt Information
@@ -53,9 +52,8 @@ Each experiment generates a JSON file containing an array of records. Each recor
 | Field | Type | Description |
 |-------|------|-------------|
 | `output` | string | The generated text output from the model |
-| `tokens` | integer | Total number of tokens in the output |
 | `tokens_in` | integer | Number of tokens in the input prompt |
-| `tokens_out` | integer | Number of tokens in the generated output (alias of `tokens`) |
+| `tokens_out` | integer | Number of tokens in the generated output |
 | `duration` | float | Time taken to generate the output (seconds) |
 
 **Important:** Fields `output` and `duration` retain their original names for backward compatibility. Do not rename them.
@@ -91,6 +89,8 @@ Each experiment generates a JSON file containing an array of records. Each recor
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `std_dev` | float | Degradation parameter value (superseded by `level_value`) |
+| `tokens` | integer | Total number of tokens in the output (superseded by `tokens_out`) |
 | `force_run` | boolean | Legacy field from original code. Not implemented in current version - system always resumes from existing results. May be added as optional feature in future. |
 | `usar_4bit` | boolean | Whether 4-bit quantization was used (superseded by `load_4bit`) |
 | `usar_data_parallel` | boolean | Legacy field from original code. DataParallel is not used in this version. Field removed from new outputs. |

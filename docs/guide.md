@@ -187,9 +187,9 @@ A **variant** defines how to degrade the model:
 
 ### Degradation Methods
 
-- **`mult_gauss`**: Multiplicative Gaussian noise (parameterized by standard deviation)
-- **`ablation`**: Set parameters to zero (parameterized by ablation fraction)
-- **`uni_quant`**: Uniform quantization (parameterized by number of quantization levels)
+- **`mult_gauss`**: Multiplicative Gaussian noise (controlled by standard deviation)
+- **`ablation`**: Set parameters to zero (controlled by masking proportion, 0–1)
+- **`uni_quant`**: Uniform quantization (controlled by number of quantization levels)
 
 ### Target Parameter Groups
 

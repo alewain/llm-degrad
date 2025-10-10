@@ -34,7 +34,7 @@ cp env.example .env
 
 ### Tasks (Experiment Themes)
 
-_Defined in [`configs/prompts.py`](configs/prompts.py)_
+<sub>_Defined in [`configs/prompts.py`](configs/prompts.py)_</sub>
 
 | Task | Description | Prompts |
 |------|-------------|---------|
@@ -44,7 +44,7 @@ _Defined in [`configs/prompts.py`](configs/prompts.py)_
 
 ### Degradation Methods
 
-_Defined in [`src/degradation.py`](src/degradation.py)_
+<sub>_Defined in [`src/degradation.py`](src/degradation.py)_</sub>
 
 - **`mult_gauss`**: Multiplicative Gaussian noise (controlled by standard deviation)
 - **`ablation`**: Set parameters to zero (controlled by masking proportion, 0–1)
@@ -52,7 +52,7 @@ _Defined in [`src/degradation.py`](src/degradation.py)_
 
 ### Target Parameter Groups
 
-_Defined in [`src/degradation.py`](src/degradation.py)_
+<sub>_Defined in [`src/degradation.py`](src/degradation.py)_</sub>
 
 - **`attn_only`**: Attention V-projection matrices (`v_proj.weight`)
 - **`mlp_only`**: Feed-forward network matrices (gate, up, down)
@@ -62,7 +62,7 @@ _Defined in [`src/degradation.py`](src/degradation.py)_
 
 ### Variants (Method + Target Combinations)
 
-_Defined in [`configs/experiment_configs.py`](configs/experiment_configs.py)_
+<sub>_Defined in [`configs/experiment_configs.py`](configs/experiment_configs.py)_</sub>
 
 Each variant is a specific combination of degradation method and target parameter group. The following 5 variants were used in this thesis:
 

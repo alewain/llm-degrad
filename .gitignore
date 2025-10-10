@@ -33,3 +33,9 @@ snapshots/
 # Configuración local / IDE
 .vscode/
 .DS_Store
+
+# Archivos temporales/accidentales
+tatus
+*~
+*.tmp
+*.bak
