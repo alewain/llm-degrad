@@ -140,8 +140,3 @@ Each file contains an array of JSON objects, one per generation. See [output_sch
 - **[Complete Guide](docs/guide.md)** - Installation, usage, extending the system, examples
 - **[Output Schema](docs/output_schema.md)** - JSON structure reference
 
----
-
-## Contact
-
-Alejandro Wainstock - [Contact information]
