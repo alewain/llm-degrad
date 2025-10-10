@@ -1,0 +1,41 @@
+.env
+
+# Exclude experiment results and logs (created at runtime)
+results/
+logs/
+
+# Exclude images (copyright, must be obtained separately)
+images/
+
+# NOTE: If you want to include sample results in the future, use:
+# results/
+# !results/samples/
+# results/samples/*.json
+
+# Python artifacts
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+
+# Model artifacts (if downloaded locally)
+*.pt
+*.safetensors
+
+# Entorno virtual y cachés
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Snapshots de modelos
+snapshots/
+
+# Configuración local / IDE
+.vscode/
+.DS_Store
+
+# Archivos temporales/accidentales
+tatus
+*~
+*.tmp
+*.bak
