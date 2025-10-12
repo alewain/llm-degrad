@@ -180,7 +180,7 @@ All tasks use the **instruction-tuned (IT)** variant of Gemma-3-4b.
 - **`mlp_only`**: Feed-forward network matrices (gate, up, down)
 - **`embed_only`**: Token embedding matrix (`embed_tokens.weight`, lookup table)
 
-**Note:** Degradations are applied to the weight values of these matrices across all layers simultaneously.
+**Note:** In this version, degradations are applied to the weight values of these matrices across all layers simultaneously.
 
 ### VARIANTS
 
@@ -189,7 +189,7 @@ A **variant** defines how to degrade the model:
 - Target parameter group (attention, MLP, embeddings)
 - Range of degradation levels (min, max, steps)
 
-Each variant is a specific combination of degradation method and target parameter group. The following 5 variants were used in this thesis:
+Each experiment variant is a specific combination of degradation method and target parameter group. The following 5 variants were used in this thesis:
 
 | Index | Name | Method | Target | Range | Steps |
 |-------|------|--------|--------|-------|-------|
@@ -199,7 +199,7 @@ Each variant is a specific combination of degradation method and target paramete
 | 4 | `ablation_attn` | Ablation | Attention (V) | 0.0 → 0.8 (%) | 17 (linear) |
 | 5 | `quant_attn` | Quantization | Attention (V) | 1024 → 4 (levels) | 9 (geometric) |
 
-**Note:** Degradations are applied to the weight values of these matrices across all layers simultaneously.
+**Note:** In this version, degradations are applied to the weight values of these matrices across all layers simultaneously.
 
 **Note:** Parameter groups are hardcoded for Gemma-3-4b (34 layers). Using a different model requires manual adaptation.
 
