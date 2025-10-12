@@ -38,9 +38,9 @@ cp env.example .env
 
 | Task | Description | Prompts |
 |------|-------------|---------|
-| `dreams_it` | Dream narration | ~38 |
-| `iq_it` | Cognitive assessment (math, language, logic) | ~65 |
-| `cookie_theft_it` | Image description | ~20 |
+| `dreams_it` | Narrate a dream in detail | ~38 |
+| `iq_it` | Solve math and language tasks | ~65 |
+| `cookie_theft_it` | Describe a standardized picture (Cookie Theft task) | ~20 |
 
 ### Degradation Methods
 
@@ -58,13 +58,13 @@ cp env.example .env
 - **`mlp_only`**: Feed-forward network matrices (gate, up, down)
 - **`embed_only`**: Token embedding matrix (`embed_tokens.weight`, lookup table)
 
-**Note:** Degradations are applied to the weight values of these matrices across all layers simultaneously.
+**Note:** In this version, degradations are applied to the weight values of these matrices across all layers simultaneously.
 
 ### Variants (Method + Target Combinations)
 
 <sub>_Defined in [`configs/experiment_configs.py`](configs/experiment_configs.py)_</sub>
 
-Each variant is a specific combination of degradation method and target parameter group. The following 5 variants were used in this thesis:
+Each experiment variant is a specific combination of degradation method and target parameter group. The following 5 variants were used in this thesis:
 
 | Index | Name | Method | Target | Range | Steps |
 |-------|------|--------|--------|-------|-------|
