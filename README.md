@@ -2,7 +2,7 @@
 
 Experimental code for the thesis **["Controlled Degradation in a Large Language Model (LLM)"](docs/thesis_spanish.pdf)** (Spanish) by Alejandro Wainstock.
 
-This repository provides a local, reproducible pipeline for applying controlled degradations to LLM weights and generating structured outputs for analysis.
+This repository provides a local, reproducible pipeline for applying controlled degradations to LLM weights (parameters) and generating structured outputs for analysis.
 
 **Current version:** Configured for Gemma-3-4b-it. Easily adaptable to other models, prompts, or target parameters. This repository includes content generation with perturbed models; analysis tools coming soon.
 
@@ -31,6 +31,8 @@ cp env.example .env
 ---
 
 ## Available Experiments
+
+This project defines experiments by combining three elements: a **task** (which prompts to use), a **degradation method** (how to perturb the weights), and a **target parameter group** (which model components or matrices to degrade).
 
 ### Tasks (Experiment Themes)
 
@@ -100,7 +102,7 @@ python -m src.main --help
 │   ├── main.py                 # CLI entry point
 │   ├── pipeline.py             # Experiment orchestration
 │   ├── model_loader.py         # Model loading & restoration
-│   ├── degradation.py          # Degradation methods
+│   ├── degradation.py          # Degradation methods & target parameters
 │   ├── generation.py           # Text generation
 │   └── utils.py                # Utilities (logging, VRAM, seeds)
 │

@@ -6,6 +6,12 @@ The system separates:
 - TASKS: Define the experiment theme (prompts, image support, output naming)
 - VARIANTS: Define degradation method + parameter group + range (min/max/steps)
 
+Configuration system:
+1. ExperimentConfig defines all parameters with defaults
+2. TASKS override task-specific fields (prompts, image_enabled)
+3. VARIANTS override degradation fields (method, param_group, range)
+4. build_config() merges: defaults + task + variant + custom overrides
+
 Configuration is selected at runtime via CLI arguments (--task, --variants, --variant-indexes).
 """
 

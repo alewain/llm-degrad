@@ -27,8 +27,8 @@ This repository contains the experimental code for the thesis **["Controlled Deg
 
 The project explores how Large Language Models respond to controlled perturbations applied to their internal components (attention layers, MLPs, embeddings). By systematically degrading these components using methods like Gaussian noise, ablation, and quantization, we investigate:
 - How different cognitive capabilities deteriorate under damage
-- Whether degradation patterns in LLMs mirror human neurological disorders
 - Which architectural components are most critical for different types of tasks
+- Whether degradation patterns in LLMs mirror human neurological disorders
 
 ### Pipeline Capabilities
 
@@ -38,8 +38,6 @@ This repository provides a **local, reproducible pipeline** for:
 - Collecting structured outputs for downstream analysis
 
 **Note:** The code is focused exclusively on **generation and perturbation**. Analysis notebooks and metrics are separate (see thesis document).
-
-**Current version (v1):** Uses fast in-memory restoration (`subset_in_memory`). Full baseline snapshots may be added in a future version if needed.
 
 ---
 
@@ -373,7 +371,7 @@ Repo_nuevo/
 │   ├── main.py                 # CLI entry point
 │   ├── pipeline.py             # Experiment orchestration & persistence
 │   ├── model_loader.py         # Model/tokenizer loading & restoration
-│   ├── degradation.py          # Parameter groups & degradation methods
+│   ├── degradation.py          # Degradation methods & target parameters
 │   ├── generation.py           # Text generation & perplexity
 │   └── utils.py                # Logging, seeds, VRAM, image utils
 │
@@ -418,22 +416,22 @@ Repo_nuevo/
 
 #### `model_loader.py`
 - Model and tokenizer loading via HuggingFace + Unsloth
-- `subset_in_memory` restoration strategy:
+- **Current version (v1)** uses `subset_in_memory` restoration strategy:
   - Saves degradable parameter subset to CPU memory
-  - Fast restoration before each experiment repetition
+  - Fast restoration before each experiment repetition (~1-3 seconds)
+  - Full baseline snapshots may be added in a future version if needed
 - Functions:
   - `load_model_and_tokenizer()`: Main loading function
   - `create_baseline_subset()`: Create CPU memory baseline
   - `restore_from_baseline()`: Fast parameter restoration
+  - `load_image_processor()`: Load processor for multimodal experiments
 
 #### `degradation.py`
-- **Parameter groups** (Gemma-3-4b specific):
-  - `get_attn_params()`, `get_mlp_params()`, `get_embedding_params()`
-  - `PARAM_GROUPS` registry
-  - `get_param_group()`: Get parameters by group name
+- **Target parameter groups** (Gemma-3-4b specific):
+  - Constants: `ATTN_PARAMS`, `MLP_PARAMS`, `EMBED_PARAMS`, `PARAM_GROUPS`
+  - Functions: `get_param_group()`, `validate_param_group()`
 - **Degradation methods:**
-  - `apply_degradation()`: Main degradation function
-  - `quantise_tensor_uniform()`: Uniform quantization helper
+  - Functions: `apply_degradation()`, `quantise_tensor_uniform()`
   - Supports: `mult_gauss`, `ablation`, `uni_quant`
 
 #### `generation.py`
@@ -444,7 +442,7 @@ Repo_nuevo/
   - `evaluate_perplexity()`: Optional perplexity calculation
 
 #### `utils.py`
-Three main categories:
+Three main categories of functions:
 1. **General utilities:**
    - `setup_logging()`: Dual logging (console + file)
    - `set_all_seeds()`: Reproducibility (random, numpy, torch)
@@ -454,7 +452,7 @@ Three main categories:
    - `adjust_batch_size_by_vram()`: Dynamic batch size adjustment
 3. **Image support:**
    - `load_image()`: PIL image loader
-   - `prepare_prompt_with_image()`: Add `<image>` tags to prompts
+   - `prepare_prompt_with_image()`: Add `<start_of_image>` tags to prompts
 
 ---
 
@@ -545,13 +543,21 @@ This allows you to stop experiments (Ctrl+C) and resume them later without losin
 
 ### The TASKS × VARIANTS Model
 
-Experiments are defined by composing a **TASK** (experiment theme) with a **VARIANT** (degradation specification):
+Experiments are defined by composing a **TASK** (experiment theme) with a **VARIANT** (degradation method + target parameter group):
 
 ```python
 config = build_config(task_key="dreams_it", variant_key="gauss_attn")
 ```
 
 This generates a complete `ExperimentConfig` with all necessary parameters.
+
+**How it works:**
+1. `ExperimentConfig` dataclass defines defaults for all parameters
+2. `TASKS` dictionary overrides only task-specific fields (prompts, image_enabled)
+3. `VARIANTS` dictionary overrides only degradation-specific fields (method, param_group, range)
+4. `build_config()` merges: base defaults + task + variant + any custom overrides
+
+This system allows you to define tasks and variants independently, then combine them flexibly at runtime.
 
 ### ExperimentConfig Dataclass
 
