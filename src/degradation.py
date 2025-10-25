@@ -184,7 +184,7 @@ def apply_degradation(
         >>> n_modified = apply_degradation(model, param_names, 0.5, "mult_gauss")
         >>> logging.info(f"Modified {n_modified} parameters")
     """
-    n_tensores_modificados = 0
+    n_modified_tensors = 0
     
     with torch.no_grad():
         if method == "mult_gauss":
@@ -202,7 +202,7 @@ def apply_degradation(
                         dtype=param.dtype
                     )
                     param.mul_(noise)
-                    n_tensores_modificados += 1
+                    n_modified_tensors += 1
         
         elif method == "ablation":
             # Random masking: weight *= Bernoulli(1 - degrad_level)
@@ -213,7 +213,7 @@ def apply_degradation(
                 if name_clean in param_names:
                     mask = (torch.rand_like(param) > degrad_level).to(param.dtype)
                     param.mul_(mask)
-                    n_tensores_modificados += 1
+                    n_modified_tensors += 1
         
         elif method == "uni_quant":
             # Uniform quantization: quantize to degrad_level levels
@@ -233,15 +233,15 @@ def apply_degradation(
                             f"No effective change in {name_clean} "
                             "(all values already matched quantization levels)"
                         )
-                    n_tensores_modificados += 1
+                    n_modified_tensors += 1
         
         else:
             raise ValueError(f"Unrecognized degradation method: {method}")
     
     # Log summary
-    if n_tensores_modificados == 0:
+    if n_modified_tensors == 0:
         logging.warning("[apply_degradation] No parameters were modified")
     else:
-        logging.info(f"[apply_degradation] Modified {n_tensores_modificados} parameters")
+        logging.info(f"[apply_degradation] Modified {n_modified_tensors} parameters")
     
-    return n_tensores_modificados
+    return n_modified_tensors

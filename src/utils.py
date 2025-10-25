@@ -144,25 +144,25 @@ def calculate_vram_percentage() -> float:
     
     Example:
         >>> vram_pct = calculate_vram_percentage()
-        📊 VRAM usada: GPU0=45.2% | GPU1=38.7%
+        📊 VRAM used: GPU0=45.2% | GPU1=38.7%
         >>> print(f"Max VRAM: {vram_pct:.1f}%")
     """
     if not torch.cuda.is_available():
         return 0.0
     
-    porcentaje_max = 0.0
-    porcentajes = []
+    max_percentage = 0.0
+    percentages = []
     
     for i in range(torch.cuda.device_count()):
         allocated = torch.cuda.memory_allocated(i) / (1024 ** 2)  # MB
         total_vram = torch.cuda.get_device_properties(i).total_memory / (1024 ** 2)  # MB
-        porcentaje_vram = (allocated / total_vram) * 100
-        porcentajes.append(f"GPU{i}={porcentaje_vram:.1f}%")
-        if porcentaje_vram > porcentaje_max:
-            porcentaje_max = porcentaje_vram
+        vram_percentage = (allocated / total_vram) * 100
+        percentages.append(f"GPU{i}={vram_percentage:.1f}%")
+        if vram_percentage > max_percentage:
+            max_percentage = vram_percentage
     
-    logging.info(f"📊 VRAM usada: {' | '.join(porcentajes)}")
-    return porcentaje_max
+    logging.info(f"📊 VRAM used: {' | '.join(percentages)}")
+    return max_percentage
 
 
 def adjust_batch_size_by_vram(
