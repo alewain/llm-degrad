@@ -181,8 +181,8 @@ def apply_degradation(
     
     Example:
         >>> # Apply Gaussian noise with std=0.5
-        >>> n_modified = apply_degradation(model, param_names, 0.5, "mult_gauss")
-        >>> logging.info(f"Modified {n_modified} parameters")
+        >>> n_modified_tensors = apply_degradation(model, param_names, 0.5, "mult_gauss")
+        >>> logging.info(f"Modified {n_modified_tensors} parameters")
     """
     n_modified_tensors = 0
     

@@ -570,7 +570,7 @@ All experiments use a single dataclass (`ExperimentConfig`) with fields:
 
 **Model configuration:**
 - `model_name`: HuggingFace model identifier
-- `device`: GPU device (default: "cuda:0")
+- `device`: GPU device. Use "auto" for automatic multi-GPU distribution, or "cuda:0", "cuda:1", etc. for specific GPUs (default: "auto")
 - `dtype`: Tensor precision (default: "float32")
 - `load_in_4bit`: Enable 4-bit quantization (default: False)
 

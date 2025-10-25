@@ -101,9 +101,11 @@ def generate_text(
         ).to(model.device)
     
     # Cast to appropriate dtype (except input_ids which must stay as integers)
+    # Use model's dtype for consistency with model parameters
+    model_dtype = next(model.parameters()).dtype
     for k in inputs:
         if k != "input_ids" and hasattr(inputs[k], 'dtype'):
-            inputs[k] = inputs[k].to(dtype=torch.float32)
+            inputs[k] = inputs[k].to(dtype=model_dtype)
     
     # Generate outputs
     with torch.no_grad():
@@ -115,17 +117,15 @@ def generate_text(
             pad_token_id=tokenizer.eos_token_id
         )
     
-    # Calculate VRAM usage (basic implementation for now)
-    vram_percentage = 0.0
-    if torch.cuda.is_available():
-        try:
-            allocated = torch.cuda.memory_allocated(0) / (1024 ** 2)  # MB
-            total = torch.cuda.get_device_properties(0).total_memory / (1024 ** 2)  # MB
-            vram_percentage = (allocated / total) * 100
-        except Exception as e:
-            logging.warning(f"Could not calculate VRAM usage: {e}")
+    # Calculate VRAM usage (use centralized utility across all GPUs)
+    try:
+        from src.utils import calculate_vram_percentage
+        vram_percentage = calculate_vram_percentage()
+    except Exception as e:
+        logging.warning(f"Could not calculate VRAM usage: {e}")
+        vram_percentage = 0.0
     
-    # Decode outputs
+    # outputs contain full sequence (prompt + generated text)
     decoded_outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True)
     
     # Return single string if single prompt, otherwise list

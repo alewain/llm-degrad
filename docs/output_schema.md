@@ -19,7 +19,7 @@ Each experiment generates a JSON file containing an array of records. Each recor
 |-------|------|-------------|
 | `model_name` | string | Full model identifier (e.g., "google/gemma-3-4b-it") |
 | `model_variant` | string | Model variant: always "it" (instruction-tuned). Pretrained variants not supported in this version. |
-| `device` | string | Device where the model was loaded (e.g., "cuda:0") |
+| `device` | string | Device configuration requested (from config). Can be "auto" (automatic multi-GPU distribution) or "cuda:0", "cuda:1", etc. (specific GPU). Note: This reflects the requested device, not necessarily the actual device where layers ended up (when using multi-GPU with "auto") |
 | `dtype` | string | Tensor data type used: "float16", "float32", or "bfloat16" |
 | `load_4bit` | boolean | Whether the model was loaded with 4-bit quantization (for VRAM reduction, distinct from `uni_quant` degradation) |
 | `restore_strategy` | string | Restoration strategy used (currently always "subset_in_memory") |
@@ -51,9 +51,9 @@ Each experiment generates a JSON file containing an array of records. Each recor
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `output` | string | The generated text output from the model |
-| `tokens_in` | integer | Number of tokens in the input prompt |
-| `tokens_out` | integer | Number of tokens in the generated output |
+| `output` | string | Complete text: input prompt + generated text |
+| `tokens_in` | integer | Tokens in the original prompt text (before IT formatting) |
+| `tokens_out` | integer | Tokens in the complete output (prompt + generated) |
 | `duration` | float | Time taken to generate the output (seconds) |
 
 ### Generation Configuration
@@ -101,7 +101,7 @@ Each experiment generates a JSON file containing an array of records. Each recor
   "config_name": "dreams_it__quant_attn",
   "model_name": "google/gemma-3-4b-it",
   "model_variant": "it",
-  "device": "cuda:0",
+  "device": "auto",
   "dtype": "float16",
   "load_4bit": false,
   "restore_strategy": "subset_in_memory",

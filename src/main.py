@@ -59,6 +59,8 @@ def parse_variant_indexes(indexes_str: str) -> List[int]:
         part = part.strip()
         if '-' in part:
             start, end = map(int, part.split('-'))
+            # Normalize reversed ranges (e.g., "3-1" -> "1-3")
+            start, end = (start, end) if start <= end else (end, start)
             result.extend(range(start, end + 1))  # inclusive
         else:
             result.append(int(part))
@@ -167,7 +169,6 @@ Available variants (indexed 1-5):
     
     # Setup logging (use first config for log filename)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_name_clean = configs[0].model_name.split("/")[-1].replace("/", "-")
     log_filename = os.path.join(
         "logs",
         f"{args.task}_{timestamp}.log"

@@ -33,7 +33,7 @@ except ImportError:
 def load_model_and_tokenizer(
     model_name: str,
     param_names: List[str],
-    device: str = "cuda:0",
+    device: str = "auto",
     dtype: str = "float32",
     load_in_4bit: bool = False,
     max_seq_length: int = 512,
@@ -49,7 +49,8 @@ def load_model_and_tokenizer(
     Args:
         model_name: HuggingFace model identifier (e.g., "google/gemma-3-4b-it")
         param_names: List of parameter names to include in baseline subset
-        device: Target device ("cuda:0", "cuda:1", etc.)
+        device: Target device. Use "auto" for automatic multi-GPU distribution,
+               or "cuda:0", "cuda:1", etc. for specific GPUs
         dtype: Model dtype ("float16", "float32", "bfloat16")
         load_in_4bit: Whether to load model in 4-bit quantization
         max_seq_length: Maximum sequence length for generation
@@ -109,14 +110,17 @@ def load_model_and_tokenizer(
     }
     torch_dtype = dtype_map.get(dtype, torch.float32)
     
+    # Convert device parameter to device_map (works directly with Transformers API)
+    device_map = device
+    
     # Load with Unsloth
     model, _ = FastLanguageModel.from_pretrained(
         model_name,
         max_seq_length=max_seq_length,
         dtype=torch_dtype,
         load_in_4bit=load_in_4bit,
-        token=None,  # Will use HF_TOKEN from environment
-        device_map="auto",
+        token=hf_token,
+        device_map=device_map,
     )
     
     # Set to eval mode
@@ -130,7 +134,9 @@ def load_model_and_tokenizer(
             vram_gb = props.total_memory / (1024 ** 3)
             logging.info(f"   - GPU {i}: {props.name}, {vram_gb:.1f} GB VRAM")
     
-    logging.info(f"Model loaded on: {device}")
+    # Log actual device where model ended up
+    actual_device = next(model.parameters()).device
+    logging.info(f"Model loaded with device_map='{device_map}' → actual device: {actual_device}")
     
     # Create baseline subset
     logging.info("Creating baseline subset of degradable parameters...")

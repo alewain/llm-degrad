@@ -38,7 +38,7 @@ class ExperimentConfig:
     # Model configuration
     model_name: str = "google/gemma-3-4b-it"
     model_variant: Literal["it"] = "it"  # Only instruction-tuned variant supported
-    device: str = "cuda:0"
+    device: str = "auto"  # Device placement: "auto" (multi-GPU) or "cuda:0", "cuda:1", etc.
     dtype: Literal["float16", "float32", "bfloat16"] = "float32"
     load_in_4bit: bool = False
     restore_strategy: str = "subset_in_memory"

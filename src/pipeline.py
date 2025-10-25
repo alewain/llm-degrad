@@ -140,6 +140,10 @@ def is_prompt_computed(
     
     Returns:
         True if prompt was already computed, False otherwise
+    
+    Note:
+        Degradation level is rounded to 2 decimal places for deduplication
+        to handle floating-point precision issues (e.g., 0.5 vs 0.5000).
     """
     key = (param_group, round(float(degrad_level), 2), repeat_index, method, prompt_text.strip())
     return key in computed_prompts
@@ -296,7 +300,7 @@ def run_experiment_loop(
     
     # Initialize loop state
     experiment_start_time = time.time()
-    n_prompts_processed = 0
+    prompt_counter = 0
     batch_size = max_batch_size
     
     # Main experiment loop
@@ -327,7 +331,7 @@ def run_experiment_loop(
                 logging.info(f"[Degradation] Applied in {time.time() - degrade_start:.3f}s")
             
             # Check if all prompts already computed for this repetition
-            n_missing_prompts = sum(
+            missing_count = sum(
                 1 for p in prompts
                 if not is_prompt_computed(
                     computed_prompts_set, param_group_name, degrad_level,
@@ -335,15 +339,15 @@ def run_experiment_loop(
                 )
             )
             
-            if n_missing_prompts == 0:
+            if missing_count == 0:
                 logging.info(
                     f"✅ All prompts already computed for level={degrad_level:.2f}, "
                     f"repeat={repeat_index}. Skipping."
                 )
                 continue
-            elif n_missing_prompts < len(prompts):
+            elif missing_count < len(prompts):
                 logging.info(
-                    f"🔵 Resuming: {n_missing_prompts}/{len(prompts)} prompts remaining"
+                    f"🔵 Resuming: {missing_count}/{len(prompts)} prompts remaining"
                 )
             
             # Process prompts in batches
@@ -387,17 +391,17 @@ def run_experiment_loop(
                         continue
                     
                     # Create result entry
-                    n_tokens = len(tokenizer.encode(output))
+                    token_count = len(tokenizer.encode(output))
                     tokens_in = len(tokenizer.encode(prompt_text))
                     result_entry = {
                         "timestamp": datetime.now().isoformat(),
                         "model_name": model_name,
                         "config_name": config.config_name,
-                        "prompt_group": config.config_name.split("_")[0],
+                        "prompt_group": config.config_name.split("__")[0],
                         "prompt_id": prompt_idx + 1,
                         "prompt_text": prompt_text,
                         "output": output.strip(),
-                        "std_dev": degrad_level,  # Legacy field for backward compatibility
+                        "std_dev": degrad_level,
                         "level_value": degrad_level,
                         "level_index": level_idx,
                         "repeat_index": repeat_index,
@@ -410,8 +414,8 @@ def run_experiment_loop(
                             "max_new_tokens": config.max_new_tokens,
                         },
                         "duration": time.time() - prompt_start,
-                        "tokens": n_tokens,
-                        "tokens_out": n_tokens,
+                        "tokens": token_count,
+                        "tokens_out": token_count,
                         "tokens_in": tokens_in,
                         "model_variant": config.model_variant,
                         "device": config.device,
@@ -428,18 +432,18 @@ def run_experiment_loop(
                     
                     results.append(result_entry)
                     
-                    # Add to computed set
+                    # Add to computed set (degrad_level rounded to 2 decimals for consistency)
                     key = (param_group_name, round(degrad_level, 2), repeat_index, degradation_method, prompt_text.strip())
                     computed_prompts_set.add(key)
                     
-                    n_prompts_processed += 1
+                    prompt_counter += 1
                     
                     # Periodic save
-                    if n_prompts_processed % 20 == 0:
+                    if prompt_counter % 20 == 0:
                         save_start = time.time()
                         save_results(output_path, results, indent=None)
                         logging.info(
-                            f"[Periodic save] {n_prompts_processed} prompts processed "
+                            f"[Periodic save] {prompt_counter} prompts processed "
                             f"({time.time() - save_start:.3f}s)"
                         )
                     
@@ -449,12 +453,11 @@ def run_experiment_loop(
                         f"[{degradation_method}, {param_group_name}, level={degrad_level:.2f}]:\n"
                         f"{output.strip()[:200]}..." + ("-" * 60)
                     )
-                    logging.info(f"⏱️  Time: {time.time() - prompt_start:.2f}s | Tokens: {n_tokens}")
+                    logging.info(f"⏱️  Time: {time.time() - prompt_start:.2f}s | Tokens: {token_count}")
                 
-                # Adjust batch size based on VRAM
-                vram_current = calculate_vram_percentage()
+                # Adjust batch size based on VRAM (use value returned by generate_text)
                 batch_size = adjust_batch_size_by_vram(
-                    vram_current, batch_size, max_batch_size, len(prompts)
+                    vram_pct, batch_size, max_batch_size, len(prompts)
                 )
             
             # Save after each repetition
