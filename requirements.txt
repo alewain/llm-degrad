@@ -1,29 +1,30 @@
 # LLM Degradation Experiments - Python Dependencies
 # 
-# Installation:
 # 1. First install PyTorch with CUDA 12.1:
-#    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#    pip install torch>=2.5.1 torchvision>=0.20.1 --index-url https://download.pytorch.org/whl/cu121
 # 2. Then install remaining dependencies:
 #    pip install -r requirements.txt
 
-# Core dependencies
-numpy>=1.24.0
-transformers>=4.30.0
-sentencepiece>=0.1.99
-accelerate>=0.20.0
-pillow>=10.0.0  # For image loading (Cookie Theft experiment)
+# Core
+numpy>=2.1.2
+transformers>=4.50.0
+sentencepiece>=0.2.0
+accelerate>=1.6.0
+pillow>=11.0.0
 python-dotenv>=1.0.0  # For loading HF_TOKEN from .env file
 
-# Unsloth for fast model loading
-# Note: Check https://github.com/unslothai/unsloth for installation instructions
-# May require specific installation steps depending on CUDA version
-unsloth>=2024.1
+# Optional training/inference helpers
+# Optional: Unsloth for optimized model loading (recommended)
+# Install with: pip install unsloth
+# If not available, falls back to standard Transformers>=2025.4.1
+huggingface-hub>=0.30.2
+xformers>=0.0.29.post3
 
-# Hugging Face Hub for model downloads
-huggingface-hub>=0.16.0
+# For 4-bit quantization (REQUIRED if you use load_in_4bit=True)
+# bitsandbytes>=0.45.5
 
-# Optional: For future notebook analysis features
-# pandas>=2.0.0
-# matplotlib>=3.7.0
-# seaborn>=0.12.0
+# Optional analytics (uncomment if needed)
+# pandas>=2.2.3
+# matplotlib>=3.9.0
+# seaborn>=0.13.2
 # jupyter>=1.0.0

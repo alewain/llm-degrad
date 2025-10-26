@@ -3,7 +3,7 @@ Model loading and restoration for LLM degradation experiments.
 
 This module implements the `subset_in_memory` restoration strategy:
 - Loads model and tokenizer from HuggingFace (with automatic caching)
-- Uses Unsloth for optimized model loading
+- Uses Unsloth for optimized model loading (optional)
 - Saves a baseline copy of degradable parameters in CPU memory
 - Provides fast restoration from this in-memory baseline before each repetition
 
@@ -19,7 +19,7 @@ import os
 import time
 import torch
 from typing import Dict, Any, Tuple, List
-from transformers import AutoTokenizer, AutoProcessor
+from transformers import AutoTokenizer, AutoProcessor, AutoModelForCausalLM
 
 # Import unsloth only when actually loading model (avoid import errors in tests)
 try:
@@ -82,12 +82,6 @@ def load_model_and_tokenizer(
     # Load model
     logging.info(f"Loading model {model_name}...")
     
-    if not UNSLOTH_AVAILABLE:
-        raise RuntimeError(
-            "Unsloth is required for model loading. "
-            "Please install: pip install unsloth"
-        )
-    
     # Validate HF_TOKEN is present
     hf_token = os.getenv("HF_TOKEN")
     if not hf_token:
@@ -113,15 +107,24 @@ def load_model_and_tokenizer(
     # Convert device parameter to device_map (works directly with Transformers API)
     device_map = device
     
-    # Load with Unsloth
-    model, _ = FastLanguageModel.from_pretrained(
-        model_name,
-        max_seq_length=max_seq_length,
-        dtype=torch_dtype,
-        load_in_4bit=load_in_4bit,
-        token=hf_token,
-        device_map=device_map,
-    )
+    if not UNSLOTH_AVAILABLE:
+        logging.warning("⚠️ Unsloth not available: using standard Transformers")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            device_map=device_map,
+            torch_dtype=torch_dtype,
+            trust_remote_code=True,
+            token=hf_token,
+        )
+    else:
+        model, _ = FastLanguageModel.from_pretrained(
+            model_name,
+            max_seq_length=max_seq_length,
+            dtype=torch_dtype,
+            load_in_4bit=load_in_4bit,
+            token=hf_token,
+            device_map=device_map,
+        )
     
     # Set to eval mode
     model.eval()
@@ -145,6 +148,13 @@ def load_model_and_tokenizer(
     elapsed = time.time() - start_time
     logging.info(f"✅ Model loading complete in {elapsed:.2f}s")
     
+    # Ensure tokenizer has a pad token to avoid padding warnings
+    try:
+        if getattr(tokenizer, "pad_token_id", None) is None and getattr(tokenizer, "eos_token_id", None) is not None:
+            tokenizer.pad_token = tokenizer.eos_token
+    except Exception:
+        pass
+
     return model, tokenizer, baseline_subset
 
 
@@ -176,7 +186,7 @@ def create_baseline_subset(
         # Remove 'module.' prefix if present (DataParallel compatibility)
         name_clean = name[7:] if name.startswith("module.") else name
         
-        if name_clean in param_names:
+        if any(name_clean.endswith(sfx) for sfx in param_names):
             # Clone to CPU and preserve dtype
             baseline_subset[name_clean] = param.detach().cpu().clone()
     

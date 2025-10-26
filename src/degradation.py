@@ -25,19 +25,19 @@ NUM_LAYERS = 34
 
 # Attention parameters (V matrices)
 ATTN_PARAMS = [
-    f"language_model.model.layers.{i}.self_attn.v_proj.weight"
+    f"layers.{i}.self_attn.v_proj.weight"
     for i in range(NUM_LAYERS)
 ]
 
 # MLP parameters (gate, up, down projections)
 MLP_PARAMS = [
-    f"language_model.model.layers.{i}.mlp.{proj}_proj.weight"
+    f"layers.{i}.mlp.{proj}_proj.weight"
     for i in range(NUM_LAYERS)
     for proj in ["gate", "up", "down"]
 ]
 
 # Embedding parameters
-EMBED_PARAMS = ["language_model.model.embed_tokens.weight"]
+EMBED_PARAMS = ["embed_tokens.weight"]
 
 # Parameter groups dictionary (for config-based selection)
 PARAM_GROUPS: Dict[str, List[str]] = {
@@ -184,6 +184,23 @@ def apply_degradation(
         >>> n_modified_tensors = apply_degradation(model, param_names, 0.5, "mult_gauss")
         >>> logging.info(f"Modified {n_modified_tensors} parameters")
     """
+    # Validate parameters
+    if not param_names:
+        raise ValueError("param_names cannot be empty")
+    
+    if method not in ["mult_gauss", "ablation", "uni_quant"]:
+        raise ValueError(f"method must be one of ['mult_gauss', 'ablation', 'uni_quant'], got: {method}")
+    
+    if method == "mult_gauss":
+        if degrad_level < 0:
+            raise ValueError(f"degrad_level for mult_gauss must be >= 0, got: {degrad_level}")
+    elif method == "ablation":
+        if not (0 <= degrad_level <= 1):
+            raise ValueError(f"degrad_level for ablation must be between 0 and 1, got: {degrad_level}")
+    elif method == "uni_quant":
+        if degrad_level < 2 or not isinstance(degrad_level, (int, float)) or int(degrad_level) != degrad_level:
+            raise ValueError(f"degrad_level for uni_quant must be an integer >= 2, got: {degrad_level}")
+    
     n_modified_tensors = 0
     
     with torch.no_grad():
@@ -193,7 +210,7 @@ def apply_degradation(
                 # Remove 'module.' prefix if present (DataParallel compatibility)
                 name_clean = name[7:] if name.startswith("module.") else name
                 
-                if name_clean in param_names:
+                if any(name_clean.endswith(sfx) for sfx in param_names):
                     noise = torch.normal(
                         mean=1.0,
                         std=degrad_level,
@@ -210,7 +227,7 @@ def apply_degradation(
                 # Remove 'module.' prefix if present (DataParallel compatibility)
                 name_clean = name[7:] if name.startswith("module.") else name
                 
-                if name_clean in param_names:
+                if any(name_clean.endswith(sfx) for sfx in param_names):
                     mask = (torch.rand_like(param) > degrad_level).to(param.dtype)
                     param.mul_(mask)
                     n_modified_tensors += 1
@@ -221,7 +238,7 @@ def apply_degradation(
                 # Remove 'module.' prefix if present (DataParallel compatibility)
                 name_clean = name[7:] if name.startswith("module.") else name
                 
-                if name_clean in param_names:
+                if any(name_clean.endswith(sfx) for sfx in param_names):
                     quantised = quantise_tensor_uniform(param, int(degrad_level))
                     n_unique = len(torch.unique(quantised))
                     changed = not torch.allclose(param, quantised)

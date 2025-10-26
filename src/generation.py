@@ -21,6 +21,12 @@ def wrap_chat_it(user_prompt: str) -> str:
     replacing the need for tokenizer.apply_chat_template(..., add_generation_prompt=True).
     The format includes <start_of_turn>model at the end to signal generation start.
     
+    Important:
+    - Do not combine this manual wrapper with tokenizer.apply_chat_template to avoid duplicated
+      special tokens/markers. Use one approach or the other, not both.
+    - This requires the tokenizer to recognize the special tokens used (<bos>, <start_of_turn>,
+      <end_of_turn>).
+    
     Args:
         user_prompt: The raw user prompt text
     
@@ -97,14 +103,14 @@ def generate_text(
             prompt, 
             return_tensors="pt", 
             padding=True, 
-            truncation=True
+            truncation=False
         ).to(model.device)
     
-    # Cast to appropriate dtype (except input_ids which must stay as integers)
-    # Use model's dtype for consistency with model parameters
+    # Cast only tensors that should match model dtype; preserve known input dtypes
     model_dtype = next(model.parameters()).dtype
+    preserve_dtypes = {"input_ids", "attention_mask", "pixel_values"}
     for k in inputs:
-        if k != "input_ids" and hasattr(inputs[k], 'dtype'):
+        if k not in preserve_dtypes and hasattr(inputs[k], 'dtype'):
             inputs[k] = inputs[k].to(dtype=model_dtype)
     
     # Generate outputs
@@ -140,10 +146,12 @@ def evaluate_perplexity(
     """
     Calculate perplexity of the model on a given text.
 
+    Note: Currently NOT used by the pipeline; kept for future versions.
+
     Note:
         This is an optional metric, disabled by default in experiments.
-        Enable via config.compute_perplexity = True
-    
+        Even if enabled in config, the pipeline does not call this function in this version.
+
     Perplexity is exp(loss) and measures how well the model predicts the text.
     Lower perplexity indicates better language modeling performance.
     

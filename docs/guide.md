@@ -64,10 +64,10 @@ This repository provides a **local, reproducible pipeline** for:
 
 2. **Install PyTorch with CUDA 12.1:**
    ```bash
-   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+   pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu121
    ```
    
-   > **Note:** GPU with CUDA 12.1 or higher is required. The project is designed for GPU-only execution.
+   > **Note:** These exact versions have been tested and verified to work correctly with CUDA 12.1 and our dependency stack. GPU with CUDA 12.1 or higher is required. The project is designed for GPU-only execution.
 
 3. **Install remaining dependencies:**
    ```bash
@@ -130,7 +130,7 @@ huggingface-cli login
 python -m src.main --task dreams_it --variants gauss_attn
 
 # Run multiple variants by name:
-python -m src.main --task iq_it --variants gauss_attn,gauss_mlp,quant_attn
+python -m src.main --task math_it --variants gauss_attn,gauss_mlp,quant_attn
 
 # Run variants by index (1-5):
 python -m src.main --task cookie_theft_it --variant-indexes 1-5
@@ -161,7 +161,8 @@ A **task** defines the experiment theme:
 | Task | Description | Prompts | Image |
 |------|-------------|---------|-------|
 | `dreams_it` | Dream narration | ~38 | No |
-| `iq_it` | Cognitive assessment (math, language, logic) | ~65 | No |
+| `math_it` | Math tasks | ~24 | No |
+| `lang_it` | Language tasks | ~16 | No |
 | `cookie_theft_it` | Image description | ~20 | Yes |
 
 All tasks use the **instruction-tuned (IT)** variant of Gemma-3-4b.
@@ -220,7 +221,8 @@ python -m src.main --task TASK_NAME --variant-indexes INDEXES
 Select one task:
 ```bash
 --task dreams_it
---task iq_it
+--task math_it
+--task lang_it
 --task cookie_theft_it
 ```
 
@@ -257,16 +259,18 @@ Select one task:
 
 ```bash
 --log-level {DEBUG,INFO,WARNING,ERROR}  # Default: INFO
+--n-rep N                               # Number of repetitions per level (overrides variant default)
+--deg-steps N                           # Number of degradation steps (overrides variant default)
 ```
 
 ### Examples
 
 ```bash
-# Run Gaussian attention variant on dreams task
-python -m src.main --task dreams_it --variants gauss_attn
+# Run Gaussian attention variant on dreams task - QUICK TEST
+python -m src.main --task dreams_it --variants gauss_attn --n-rep 2 --deg-steps 3
 
-# Run all 5 variants on IQ task
-python -m src.main --task iq_it --variant-indexes 1-5
+# Run all 5 variants on math task
+python -m src.main --task math_it --variant-indexes 1-5
 
 # Run specific variants by index on cookie theft (with image)
 python -m src.main --task cookie_theft_it --variant-indexes 2,4
@@ -277,9 +281,11 @@ python -m src.main --task dreams_it --variants gauss_attn,ablation_attn --log-le
 
 ### Running Multiple Experiments
 
+Level order: always from least to most degradation. For uni_quant: progresses from more quantization levels (better quality) to fewer (more degradation).
+
 To run all tasks with all variants (bash loop):
 ```bash
-for task in dreams_it iq_it cookie_theft_it; do
+for task in dreams_it math_it lang_it cookie_theft_it; do
     python -m src.main --task $task --variant-indexes 1-5
 done
 ```
@@ -297,7 +303,10 @@ from configs.experiment_configs import build_config
 cfg = build_config("dreams_it", "gauss_attn")
 
 # Build with overrides
-cfg_custom = build_config("iq_it", "quant_attn", n_rep=5, temperature=0.8)
+cfg_custom = build_config("math_it", "quant_attn", n_rep=5, temperature=0.8)
+
+# Build with custom JSON filename
+cfg_custom_name = build_config("dreams_it", "gauss_attn", custom_json_suffix="my_experiment_2025")
 
 # Access configuration fields
 print(f"Task: {cfg.config_name}")
@@ -415,7 +424,7 @@ Repo_nuevo/
 - JSON persistence with resume capability
 
 #### `model_loader.py`
-- Model and tokenizer loading via HuggingFace + Unsloth
+- Model and tokenizer loading via HuggingFace + Unsloth (optional)
 - **Current version (v1)** uses `subset_in_memory` restoration strategy:
   - Saves degradable parameter subset to CPU memory
   - Fast restoration before each experiment repetition (~1-3 seconds)
@@ -437,9 +446,10 @@ Repo_nuevo/
 #### `generation.py`
 - Text generation with optional image support
 - Functions:
-  - `wrap_chat_it()`: Format prompts for instruction-tuned models
+  - `wrap_chat_it()`: Format prompts for instruction-tuned models (manual chat wrapper; do not combine with `tokenizer.apply_chat_template`)
   - `generate_text()`: Main generation function (batched)
   - `evaluate_perplexity()`: Optional perplexity calculation
+    (currently not used by the pipeline)
 
 #### `utils.py`
 Three main categories of functions:
@@ -567,6 +577,7 @@ All experiments use a single dataclass (`ExperimentConfig`) with fields:
 - `config_name`: Auto-generated as `f"{task}__{variant}"`
 - `prompts`: List of prompt strings
 - `name_suffix`: For output file naming (auto-generated from task key)
+- `custom_json_suffix`: Custom suffix for output JSON filename (overrides name_suffix if provided)
 
 **Model configuration:**
 - `model_name`: HuggingFace model identifier
@@ -591,7 +602,7 @@ All experiments use a single dataclass (`ExperimentConfig`) with fields:
 
 **Optional features:**
 - `image_enabled`: Load processor & image (default: False)
-- `image_filename`: Image path (default: "DescribePictureOK.png")
+- `image_filename`: Image path (default: "images/image_description.png")
 - `compute_perplexity`: Calculate perplexity (default: False)
 - `perplexity_text`: Text for perplexity evaluation
 
@@ -618,13 +629,17 @@ cfg = build_config(
 
 Results are saved as JSON files with the naming scheme:
 ```
-results/outputs_{method}_{model}_{task}.json
+results/outputs_{method}_{model}_{suffix}.json
 ```
 
+Where `{suffix}` is:
+- `custom_json_suffix` if provided in the configuration
+- `name_suffix` (task key) if `custom_json_suffix` is empty
+
 Examples:
-- `outputs_mult_gauss_gemma-3-4b-it_dreams_it.json`
-- `outputs_uni_quant_gemma-3-4b-it_iq_it.json`
-- `outputs_ablation_gemma-3-4b-it_cookie_theft_it.json`
+- `outputs_mult_gauss_gemma-3-4b-it_dreams_it.json` (default)
+- `outputs_uni_quant_gemma-3-4b-it_math_it.json` (default)
+- `outputs_ablation_gemma-3-4b-it_my_experiment_2025.json` (custom suffix)
 
 ### JSON Structure
 
@@ -746,9 +761,9 @@ VARIANTS["my_variant"] = {
 #### Import Errors
 **Problem:** `ModuleNotFoundError: No module named 'torch'`
 
-**Solution:** Install dependencies:
+**Solution:** Install dependencies with tested versions:
 ```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
 ```
 

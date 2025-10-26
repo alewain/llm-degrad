@@ -1,13 +1,14 @@
 """
-Prompt lists for the three main experiments (all instruction-tuned).
+Prompt lists for the four main experiments (all instruction-tuned).
 
 This module contains the prompts used in the thesis experiments:
 - dream_prompts_it: Dream narration task (~38 prompts)
-- iq_prompts_it: Multi-task cognitive assessment (~65 prompts)
+- math_prompts_it: Math tasks (~24 prompts)
+- language_prompts_it: Language tasks (~16 prompts)
 - cookie_theft_prompts_it: Cookie Theft image description (~20 prompts)
 
-Note: Only instruction-tuned (IT) variants are included.
-      Pretrained (PT) variants are not part of this migration.
+Note: Only instruction-tuned (IT) variants are included (hence the `_it` suffix in names).
+      Pretrained (PT) variants are not part of this version.
 """
 
 # ============================================================================
@@ -59,8 +60,8 @@ dream_prompts_it = [
 # IQ prompts (multi-task cognitive assessment)
 # ============================================================================
 
-# Math problems
-math_prompts = [
+# Math problems (instruction-tuned)
+math_prompts_it = [
     "What number completes the sequence: 93, 94, 95, __, 97?",
     "What number continues the sequence: -5, -4, -3, -2, __?",
     "What is the result of 3 + 48 / 6 - 7?",
@@ -88,8 +89,8 @@ math_prompts = [
     "How many hours are there in four and a half days?",
 ]
 
-# Language tasks
-language_prompts = [
+# Language tasks (instruction-tuned)
+language_prompts_it = [
     "Which word comes next: January, March, May, ___?",
     "Which word does not belong: carrot, apple, banana, grape",
     "Which word does not belong: spoon, tea, coffee, juice",
@@ -107,15 +108,15 @@ language_prompts = [
     "Rearrange the following to form a correct sentence: 'beneath / quietly / bridge / the / river / the / flowed'",
 ]
 
-# Logic puzzles
-logic_prompts = [
+# Logic puzzles (instruction-tuned) - unused by default tasks
+logic_prompts_it = [
     "All cats are animals. All animals are floms. Can we conclude that all cats are floms?",
     "All cats are animals. All animals are floms. Can we conclude that all floms are cats?",
     "If the statement 'If it rains, the grass is wet' is true, and the grass is not wet, what can we conclude about rain?",
 ]
 
-# Factual knowledge
-factual_prompts = [
+# Factual knowledge (instruction-tuned) - unused by default tasks
+factual_prompts_it = [
     "How many sides does a hexagon have?",
     "What is the capital of France?",
     "How many hours are there in two days?",
@@ -123,19 +124,19 @@ factual_prompts = [
     "What gas do plants absorb during photosynthesis?",
 ]
 
-# Creativity tasks
-creativity_prompts = [
+# Creativity tasks (instruction-tuned) - unused by default tasks
+creativity_prompts_it = [
     "List as many animals as you can.",
     "Name as many words related to the kitchen as you can.",
 ]
 
-# Combined IQ prompts (all categories)
+# Combined IQ prompts (all categories) - deprecated (kept for reference)
 iq_prompts_it = (
-    math_prompts + 
-    language_prompts + 
-    logic_prompts + 
-    factual_prompts + 
-    creativity_prompts
+    math_prompts_it + 
+    language_prompts_it + 
+    logic_prompts_it + 
+    factual_prompts_it + 
+    creativity_prompts_it
 )
 
 # ============================================================================

@@ -15,11 +15,10 @@ This repository provides a local, reproducible pipeline for applying controlled 
 First, verify the [requirements](docs/guide.md#requirements). Use a virtual environment (optional, recommended).
   
   ```bash
-# Ensure PyTorch with CUDA is installed in your environment
-# If you already have a correct torch+CUDA install, skip.
-  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Install PyTorch with CUDA 12.1 (tested and verified versions)
+pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu121
 
-# Install remaining dependencies
+# Install remaining dependencies (tested version combinations)
 pip install -r requirements.txt
 
 # Set up HuggingFace token
@@ -41,7 +40,8 @@ This project defines experiments by combining three elements: a **task** (which 
 | Task | Description | Prompts |
 |------|-------------|---------|
 | `dreams_it` | Narrate a dream in detail | ~38 |
-| `iq_it` | Solve math and language tasks | ~65 |
+| `math_it` | Solve math tasks | ~24 |
+| `lang_it` | Language tasks | ~16 |
 | `cookie_theft_it` | Describe a standardized picture (Cookie Theft task) | ~20 |
 
 ### Degradation Methods
@@ -83,8 +83,8 @@ Each experiment variant is a specific combination of degradation method and targ
 # Single variant
 python -m src.main --task dreams_it --variants gauss_attn
 
-# Multiple variants by name
-python -m src.main --task iq_it --variants gauss_attn,gauss_mlp
+# Multiple variants by name - QUICK TEST
+python -m src.main --task math_it --variants gauss_attn,gauss_mlp --n-rep 2 --deg-steps 3
 
 # All variants by index
 python -m src.main --task cookie_theft_it --variant-indexes 1-5

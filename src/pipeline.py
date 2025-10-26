@@ -21,6 +21,13 @@ from src.model_loader import restore_from_baseline
 from src.degradation import apply_degradation
 from src.generation import generate_text, evaluate_perplexity
 
+# Mapping of degradation methods to their parameter names
+DEGRADATION_PARAM_NAMES = {
+    "mult_gauss": "std_dev",
+    "ablation": "mask_prob", 
+    "uni_quant": "n_levels"
+}
+
 
 class ExperimentState(NamedTuple):
     """Container for experiment state shared across pipeline phases."""
@@ -44,6 +51,9 @@ def generate_degradation_levels(
 ) -> List[float]:
     """
     Generate degradation levels for the experiment.
+    
+    Returns levels ordered from least to most degradation. For uni_quant, 
+    the effective traversal is from max_deg to min_deg (more levels → fewer levels).
     
     Args:
         method: Degradation method ("mult_gauss", "ablation", "uni_quant")
@@ -231,7 +241,10 @@ def setup_experiment(config: ExperimentConfig) -> ExperimentState:
     
     # Setup output path
     model_name_clean = config.model_name.split("/")[-1].replace("/", "-")
-    json_filename = f"outputs_{config.degradation_method}_{model_name_clean}_{config.name_suffix}.json"
+    
+    # Use custom_json_suffix if defined, otherwise use name_suffix
+    json_suffix = config.custom_json_suffix if config.custom_json_suffix else config.name_suffix
+    json_filename = f"outputs_{config.degradation_method}_{model_name_clean}_{json_suffix}.json"
     output_path = os.path.join("results", json_filename)
     os.makedirs("results", exist_ok=True)
     logging.info(f"Output file: {output_path}")
@@ -315,8 +328,8 @@ def run_experiment_loop(
             set_all_seeds(local_seed)
             
             logging.info(
-                f"\n\n=== [{degradation_method}] level={degrad_level:.4f} | {param_group_name} | "
-                f"repeat={repeat_index} | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==="
+                f"\n\n=== [{degradation_method}] level({DEGRADATION_PARAM_NAMES.get(degradation_method, 'level')})={degrad_level:.4f} | {param_group_name} | "
+                f"repeat_idx={repeat_index} | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==="
             )
             
             # Restore model from baseline
@@ -350,8 +363,9 @@ def run_experiment_loop(
                     f"🔵 Resuming: {missing_count}/{len(prompts)} prompts remaining"
                 )
             
-            # Process prompts in batches
-            for batch_start in range(0, len(prompts), batch_size):
+            # Process prompts in batches (dynamic batch size)
+            batch_start = 0
+            while batch_start < len(prompts):
                 batch_end = min(batch_start + batch_size, len(prompts))
                 batch_prompts = prompts[batch_start:batch_end]
                 
@@ -402,7 +416,7 @@ def run_experiment_loop(
                         "prompt_text": prompt_text,
                         "output": output.strip(),
                         "std_dev": degrad_level,
-                        "level_value": degrad_level,
+                        "degrad_level": degrad_level,
                         "level_index": level_idx,
                         "repeat_index": repeat_index,
                         "param_group_name": param_group_name,
@@ -450,15 +464,26 @@ def run_experiment_loop(
                     # Log output
                     logging.info(
                         f"\nPrompt {prompt_idx + 1} (rep {repeat_index}) "
-                        f"[{degradation_method}, {param_group_name}, level={degrad_level:.2f}]:\n"
-                        f"{output.strip()[:200]}..." + ("-" * 60)
+                        f"[{degradation_method}, {param_group_name}, level({DEGRADATION_PARAM_NAMES.get(degradation_method, 'level')})={degrad_level:.2f}]:\n"
+                        f"{output.strip()}" + ("-" * 60)
                     )
                     logging.info(f"⏱️  Time: {time.time() - prompt_start:.2f}s | Tokens: {token_count}")
                 
                 # Adjust batch size based on VRAM (use value returned by generate_text)
-                batch_size = adjust_batch_size_by_vram(
-                    vram_pct, batch_size, max_batch_size, len(prompts)
-                )
+                try:
+                    batch_size = adjust_batch_size_by_vram(
+                        vram_pct, batch_size, max_batch_size, len(prompts)
+                    )
+                    if batch_size < 1:
+                        batch_size = 1
+                except SystemExit:
+                    # VRAM crítico detectado, guardar resultados antes de salir
+                    logging.error("VRAM crítico detectado, guardando resultados y saliendo...")
+                    save_results(output_path, results, indent=2)  # Guardado final con indentación
+                    raise  # Re-lanzar SystemExit para terminar
+                
+                # Advance to next batch using (potentially) updated batch_size on next loop
+                batch_start = batch_end
             
             # Save after each repetition
             save_results(output_path, results, indent=None)

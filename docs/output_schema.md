@@ -30,11 +30,11 @@ Each experiment generates a JSON file containing an array of records. Each recor
 |-------|------|-------------|
 | `degradation_method` | string | Method used: "mult_gauss", "ablation", or "uni_quant" |
 | `param_group_name` | string | Which component was degraded: "attn_only", "mlp_only", or "embed_only" |
-| `level_value` | float | Degradation level control parameter (see note below) |
+| `degrad_level` | float | Degradation level control parameter (see note below) |
 | `level_index` | integer | Index of this degradation level in the experiment sequence (0-based) |
 | `repeat_index` | integer | Repetition number for this degradation level (0-based) |
 
-**Note on control parameter (`level_value`):** 
+**Note on control parameter (`degrad_level`):** 
 - For `mult_gauss`: standard deviation of Gaussian noise
 - For `ablation`: masking proportion (0.0 to 1.0)
 - For `uni_quant`: number of quantization levels
@@ -43,7 +43,7 @@ Each experiment generates a JSON file containing an array of records. Each recor
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `prompt_group` | string | Task category (e.g., "dreams", "cookie_theft", "math", "lang") |
+| `prompt_group` | string | Task key (e.g., "dreams_it", "cookie_theft_it", "math_it", "lang_it") |
 | `prompt_id` | integer | Sequential ID of the prompt within its group (1-based) |
 | `prompt_text` | string | The actual prompt text sent to the model |
 
@@ -81,13 +81,13 @@ Each experiment generates a JSON file containing an array of records. Each recor
 | Field | Type | Description |
 |-------|------|-------------|
 | `vram_usage_percent` | float or null | Percentage of VRAM used at generation time |
-| `perplexity` | float or null | Model perplexity at this degradation level (only present if `compute_perplexity=True` in config). Calculated once per degradation level, not per repetition. |
+| `perplexity` | float or null | Model perplexity (currently not emitted by the pipeline). |
 
 ### Legacy Fields (maintained for compatibility)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `std_dev` | float | Degradation parameter value (superseded by `level_value`) |
+| `std_dev` | float | Degradation parameter value (superseded by `degrad_level`) |
 | `tokens` | integer | Total number of tokens in the output (superseded by `tokens_out`) |
 | `force_run` | boolean | Legacy field from original code. Not implemented in current version - system always resumes from existing results. May be added as optional feature in future. |
 | `usar_4bit` | boolean | Whether 4-bit quantization was used (superseded by `load_4bit`) |
@@ -108,10 +108,10 @@ Each experiment generates a JSON file containing an array of records. Each recor
   "degradation_method": "uni_quant",
   "param_group_name": "attn_only",
   "std_dev": 64,
-  "level_value": 64,
+  "degrad_level": 64,
   "level_index": 2,
   "repeat_index": 0,
-  "prompt_group": "dreams",
+  "prompt_group": "dreams_it",
   "prompt_id": 1,
   "prompt_text": "Just narrate a dream with as much detail as you can.",
   "output": "I was standing in a vast, misty forest. The trees seemed to stretch endlessly upward, their branches intertwining like ancient fingers. A faint melody echoed through the air, though I couldn't identify its source. As I walked deeper into the woods, I noticed the ground beneath my feet was not solid earth but a soft, glowing moss that pulsed with each step...",
