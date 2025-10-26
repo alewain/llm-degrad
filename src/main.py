@@ -10,7 +10,7 @@ Usage:
     python -m src.main --task dreams_it --variants gauss_attn
     
     # Run multiple variants by name
-    python -m src.main --task iq_it --variants gauss_attn,quant_attn
+    python -m src.main --task math_it --variants gauss_attn,quant_attn
     
     # Run variants by index (1-5)
     python -m src.main --task cookie_theft_it --variant-indexes 1-3
@@ -59,6 +59,8 @@ def parse_variant_indexes(indexes_str: str) -> List[int]:
         part = part.strip()
         if '-' in part:
             start, end = map(int, part.split('-'))
+            # Normalize reversed ranges (e.g., "3-1" -> "1-3")
+            start, end = (start, end) if start <= end else (end, start)
             result.extend(range(start, end + 1))  # inclusive
         else:
             result.append(int(part))
@@ -76,15 +78,16 @@ Examples:
   python -m src.main --task dreams_it --variants gauss_attn
   
   # Run multiple variants by name
-  python -m src.main --task iq_it --variants gauss_attn,gauss_mlp,quant_attn
+  python -m src.main --task math_it --variants gauss_attn,gauss_mlp,quant_attn
   
-  # Run variants by index (1-5)
-  python -m src.main --task dreams_it --variant-indexes 1-5
+  # Run variants by index (1-5) - QUICK TEST
+  python -m src.main --task dreams_it --variant-indexes 1-5 --n-rep 2 --deg-steps 3
   python -m src.main --task cookie_theft_it --variant-indexes 2,4
 
 Available tasks:
   - dreams_it: Dream narration (~38 prompts, no image)
-  - iq_it: Cognitive assessment (~65 prompts, no image)
+  - math_it: Math tasks (~24 prompts, no image)
+  - lang_it: Language tasks (~16 prompts, no image)
   - cookie_theft_it: Image description (~20 prompts, with image)
 
 Available variants (indexed 1-5):
@@ -102,7 +105,7 @@ Available variants (indexed 1-5):
         type=str,
         required=True,
         choices=list(TASKS.keys()),
-        help="Experiment task (REQUIRED): dreams_it, iq_it, or cookie_theft_it"
+        help="Experiment task (REQUIRED): dreams_it, math_it, lang_it, or cookie_theft_it"
     )
     
     # Variant selection (mutually exclusive, one required)
@@ -125,6 +128,16 @@ Available variants (indexed 1-5):
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level (default: INFO)"
+    )
+    parser.add_argument(
+        "--n-rep",
+        type=int,
+        help="Number of repetitions per degradation level (overrides variant default)"
+    )
+    parser.add_argument(
+        "--deg-steps", 
+        type=int,
+        help="Number of degradation steps (overrides variant default)"
     )
     
     args = parser.parse_args()
@@ -159,7 +172,14 @@ Available variants (indexed 1-5):
     configs = []
     for variant_key in variant_keys:
         try:
-            cfg = build_config(args.task, variant_key)
+            # Prepare overrides from CLI arguments
+            overrides = {}
+            if args.n_rep is not None:
+                overrides['n_rep'] = args.n_rep
+            if args.deg_steps is not None:
+                overrides['deg_steps'] = args.deg_steps
+            
+            cfg = build_config(args.task, variant_key, **overrides)
             configs.append(cfg)
         except ValueError as e:
             print(f"❌ Error building config for {args.task} + {variant_key}: {e}")
@@ -167,7 +187,6 @@ Available variants (indexed 1-5):
     
     # Setup logging (use first config for log filename)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_name_clean = configs[0].model_name.split("/")[-1].replace("/", "-")
     log_filename = os.path.join(
         "logs",
         f"{args.task}_{timestamp}.log"

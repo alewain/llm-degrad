@@ -1,29 +1,68 @@
-# LLM Degradation Experiments - Python Dependencies
-# 
-# Installation:
+#############################################
+# LLM Degradation Experiments — Requirements (Windows/Linux, GPU-ready)
+# Python 3.10.x Dependencies
+#############################################
+
+#
+# These are the exact dependency versions used and tested
+# in successful GPU runs of these experiments.
+# Pinning ensures full reproducibility and avoids
+# environment mismatches across systems.
+#
+
 # 1. First install PyTorch with CUDA 12.1:
-#    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-# 2. Then install remaining dependencies:
+#    pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu121
+# 2. Then install the remaining dependencies (from this file):
 #    pip install -r requirements.txt
 
-# Core dependencies
-numpy>=1.24.0
-transformers>=4.30.0
-sentencepiece>=0.1.99
-accelerate>=0.20.0
-pillow>=10.0.0  # For image loading (Cookie Theft experiment)
-python-dotenv>=1.0.0  # For loading HF_TOKEN from .env file
+# -------------------------
+# Core (pinned, GPU-safe)
+# -------------------------
+numpy==2.1.2
+transformers==4.50.0
+tokenizers==0.21.1
+sentencepiece==0.2.0
+accelerate==1.6.0
+huggingface-hub==0.30.2
+safetensors==0.6.2
+pillow==11.0.0  # For image loading (Cookie Theft experiment)
+python-dotenv==1.2.1  # For loading HF_TOKEN from .env file
 
-# Unsloth for fast model loading (optional but recommended)
-# Note: Check https://github.com/unslothai/unsloth for installation instructions
-# May require specific installation steps depending on CUDA version
-unsloth>=2024.1
+# -------------------------
+# HTTP stack (used by Hugging Face API & model downloads)
+# -------------------------
+# Ensures stable communication with Hugging Face Hub (authentication, HTTPS, encodings).
+requests==2.32.3
+idna==3.7
+urllib3==2.5.0
+charset-normalizer==3.4.4
+certifi==2025.10.5
 
-# Hugging Face Hub for model downloads
-huggingface-hub>=0.16.0
+# -------------------------
+# Optional acceleration (comment out if not needed)
+# -------------------------
+# bitsandbytes==0.45.5
+# xformers==0.0.29.post3
 
-# Optional: For notebook analysis (Phase 5)
-# pandas>=2.0.0
-# matplotlib>=3.7.0
-# seaborn>=0.12.0
+# -------------------------
+# Optional: Unsloth (GPU acceleration)
+# -------------------------
+# Unsloth is optional and may not patch Gemma on Windows.
+# If needed, install manually (with --no-deps to keep torch version intact):
+#   pip install --no-deps unsloth==2025.4.1 unsloth-zoo==2025.4.1
+#   pip install --no-deps triton-windows==3.3.0.post19
+#   pip install --no-deps xformers==0.0.29.post3
+# On Windows, if Unsloth fails, set:
+#   set UNSLOTH_DISABLE=1
+# unsloth==2025.4.1
+# unsloth-zoo==2025.4.1
+# triton-windows==3.3.0.post19
+# xformers==0.0.29.post3
+
+# -------------------------
+# Optional analytics / notebooks
+# -------------------------
+# pandas>=2.2.3
+# matplotlib>=3.9.0
+# seaborn>=0.13.2
 # jupyter>=1.0.0

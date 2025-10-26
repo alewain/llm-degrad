@@ -21,6 +21,12 @@ def wrap_chat_it(user_prompt: str) -> str:
     replacing the need for tokenizer.apply_chat_template(..., add_generation_prompt=True).
     The format includes <start_of_turn>model at the end to signal generation start.
     
+    Important:
+    - Do not combine this manual wrapper with tokenizer.apply_chat_template to avoid duplicated
+      special tokens/markers. Use one approach or the other, not both.
+    - This requires the tokenizer to recognize the special tokens used (<bos>, <start_of_turn>,
+      <end_of_turn>).
+    
     Args:
         user_prompt: The raw user prompt text
     
@@ -97,13 +103,15 @@ def generate_text(
             prompt, 
             return_tensors="pt", 
             padding=True, 
-            truncation=True
+            truncation=False
         ).to(model.device)
     
-    # Cast to appropriate dtype (except input_ids which must stay as integers)
+    # Cast only tensors that should match model dtype; preserve known input dtypes
+    model_dtype = next(model.parameters()).dtype
+    preserve_dtypes = {"input_ids", "attention_mask", "pixel_values"}
     for k in inputs:
-        if k != "input_ids" and hasattr(inputs[k], 'dtype'):
-            inputs[k] = inputs[k].to(dtype=torch.float32)
+        if k not in preserve_dtypes and hasattr(inputs[k], 'dtype'):
+            inputs[k] = inputs[k].to(dtype=model_dtype)
     
     # Generate outputs
     with torch.no_grad():
@@ -115,17 +123,15 @@ def generate_text(
             pad_token_id=tokenizer.eos_token_id
         )
     
-    # Calculate VRAM usage (basic implementation for now)
-    vram_percentage = 0.0
-    if torch.cuda.is_available():
-        try:
-            allocated = torch.cuda.memory_allocated(0) / (1024 ** 2)  # MB
-            total = torch.cuda.get_device_properties(0).total_memory / (1024 ** 2)  # MB
-            vram_percentage = (allocated / total) * 100
-        except Exception as e:
-            logging.warning(f"Could not calculate VRAM usage: {e}")
+    # Calculate VRAM usage (use centralized utility across all GPUs)
+    try:
+        from src.utils import calculate_vram_percentage
+        vram_percentage = calculate_vram_percentage()
+    except Exception as e:
+        logging.warning(f"Could not calculate VRAM usage: {e}")
+        vram_percentage = 0.0
     
-    # Decode outputs
+    # outputs contain full sequence (prompt + generated text)
     decoded_outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True)
     
     # Return single string if single prompt, otherwise list
@@ -140,10 +146,12 @@ def evaluate_perplexity(
     """
     Calculate perplexity of the model on a given text.
 
+    Note: Currently NOT used by the pipeline; kept for future versions.
+
     Note:
         This is an optional metric, disabled by default in experiments.
-        Enable via config.compute_perplexity = True
-    
+        Even if enabled in config, the pipeline does not call this function in this version.
+
     Perplexity is exp(loss) and measures how well the model predicts the text.
     Lower perplexity indicates better language modeling performance.
     

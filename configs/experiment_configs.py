@@ -12,12 +12,19 @@ Configuration system:
 3. VARIANTS override degradation fields (method, param_group, range)
 4. build_config() merges: defaults + task + variant + custom overrides
 
-Configuration is selected at runtime via CLI arguments (--task, --variants, --variant-indexes).
+Note: Perplexity-related fields are currently unused; the pipeline does not compute/store perplexity.
+
+Configuration is selected at runtime via CLI arguments (--task, --variants, --variant-indexes, --n-rep, --deg-steps).
 """
 
 from dataclasses import dataclass, replace
 from typing import List, Literal, Dict
-from configs.prompts import dream_prompts_it, iq_prompts_it, cookie_theft_prompts_it
+from configs.prompts import (
+    dream_prompts_it,
+    math_prompts_it,
+    language_prompts_it,
+    cookie_theft_prompts_it,
+)
 
 
 @dataclass
@@ -31,14 +38,15 @@ class ExperimentConfig:
     """
     
     # Experiment identification
+    prompts: List[str]  # List of prompts to use in this experiment (required, no default)
     config_name: str = ""
-    prompts: List[str]  # List of prompts to use in this experiment
     name_suffix: str = ""  # Suffix for output filename
+    custom_json_suffix: str = ""  # Custom suffix for output JSON filename (overrides name_suffix)
     
     # Model configuration
     model_name: str = "google/gemma-3-4b-it"
     model_variant: Literal["it"] = "it"  # Only instruction-tuned variant supported
-    device: str = "cuda:0"
+    device: str = "auto"  # Device placement: "auto" (multi-GPU) or "cuda:0", "cuda:1", etc.
     dtype: Literal["float16", "float32", "bfloat16"] = "float32"
     load_in_4bit: bool = False
     restore_strategy: str = "subset_in_memory"
@@ -70,6 +78,7 @@ class ExperimentConfig:
     image_filename: str = "images/image_description.png"
     
     # Perplexity evaluation (optional, disabled by default)
+    # Currently NOT used by the pipeline; reserved for future versions
     compute_perplexity: bool = False
     perplexity_text: str = "The quick brown fox jumps over the lazy dog."
 
@@ -82,8 +91,11 @@ TASKS: Dict[str, ExperimentConfig] = {
     "dreams_it": ExperimentConfig(
         prompts=dream_prompts_it,
     ),
-    "iq_it": ExperimentConfig(
-        prompts=iq_prompts_it,
+    "math_it": ExperimentConfig(
+        prompts=math_prompts_it,
+    ),
+    "lang_it": ExperimentConfig(
+        prompts=language_prompts_it,
     ),
     "cookie_theft_it": ExperimentConfig(
         prompts=cookie_theft_prompts_it,
@@ -134,6 +146,7 @@ VARIANTS: Dict[str, Dict] = {
         "deg_steps": 17,
     },
     # 5. quant_attn: Uniform quantization on attention parameters
+    # uni_quant: min/max define the numerical range; traversal is descending (fine→coarse), e.g. 1024→4
     "quant_attn": {
         "degradation_method": "uni_quant",
         "param_group_name": "attn_only",
@@ -162,7 +175,7 @@ def build_config(task_key: str, variant_key: str, **overrides) -> ExperimentConf
     Build an experiment configuration by composing a TASK with a VARIANT.
     
     Args:
-        task_key: Task name ("dreams_it", "iq_it", "cookie_theft_it")
+        task_key: Task name ("dreams_it", "math_it", "lang_it", "cookie_theft_it")
         variant_key: Variant name ("gauss_attn", "gauss_mlp", "gauss_embed", 
                                    "ablation_attn", "quant_attn")
         **overrides: Optional field overrides (e.g., n_rep=5, temperature=0.8)
@@ -175,7 +188,7 @@ def build_config(task_key: str, variant_key: str, **overrides) -> ExperimentConf
     
     Example:
         >>> cfg = build_config("dreams_it", "gauss_attn")
-        >>> cfg_custom = build_config("iq_it", "quant_attn", n_rep=5)
+        >>> cfg_custom = build_config("math_it", "quant_attn", n_rep=5)
     """
     if task_key not in TASKS:
         raise ValueError(
@@ -199,7 +212,8 @@ def build_config(task_key: str, variant_key: str, **overrides) -> ExperimentConf
     cfg = replace(
         cfg,
         config_name=f"{task_key}__{variant_key}",
-        name_suffix=task_key  # Use task_key as name_suffix for output files
+        name_suffix=task_key,  # Use task_key as name_suffix for output files
+        custom_json_suffix=task_key  # Default to task_key, can be overridden
     )
     
     # Apply any additional overrides
